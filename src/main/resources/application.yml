@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: smartbus-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smartbus
+    username: postgres
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+
+security:
+  jwt:
+    # Local default only; override with JWT_SECRET in shared/production environments.
+    secret: ${JWT_SECRET:local-dev-only-change-me-32bytes-min!!}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+
+smartbus:
+  gps:
+    stop-proximity-meters: ${GPS_STOP_PROXIMITY_METERS:50}
+
+ai:
+  provider: ${AI_PROVIDER:openai}
+  api-key: ${AI_API_KEY:}
+  base-url: ${AI_BASE_URL:https://api.openai.com/v1}
+  model: ${AI_MODEL:gpt-4o-mini}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    com.smartbus: DEBUG
