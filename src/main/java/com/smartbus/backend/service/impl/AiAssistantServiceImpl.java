@@ -4,6 +4,7 @@ import com.smartbus.backend.ai.AiClient;
 import com.smartbus.backend.ai.AiPromptBuilder;
 import com.smartbus.backend.ai.AiRequest;
 import com.smartbus.backend.ai.AiResponse;
+import com.smartbus.backend.ai.OpenAiClient;
 import com.smartbus.backend.dto.AiAssistantRequest;
 import com.smartbus.backend.dto.AiAssistantResponse;
 import com.smartbus.backend.dto.AiSummaryRequest;
@@ -17,6 +18,7 @@ import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.AiAssistantService;
+import com.smartbus.backend.util.GeoUtils;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +54,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResponse chat(AiAssistantRequest request) {
         Map<String, Object> context = buildTripContext(request.getTripId());
         String prompt = aiPromptBuilder.buildChatPrompt(context, request.getQuestion());
-        return invoke(prompt);
+        return invoke(prompt, context, request.getQuestion());
     }
 
     @Override
@@ -60,20 +62,29 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResponse summarize(AiSummaryRequest request) {
         Map<String, Object> context = buildTripContext(request.getTripId());
         String prompt = aiPromptBuilder.buildSummaryPrompt(context);
-        return invoke(prompt);
+        return invoke(prompt, context, "tom tat chuyen");
     }
 
-    private AiAssistantResponse invoke(String prompt) {
+    private AiAssistantResponse invoke(String prompt, Map<String, Object> context, String question) {
         AiRequest aiRequest = new AiRequest();
         aiRequest.setPrompt(prompt);
         AiResponse aiResponse = aiClient.complete(aiRequest);
+        String answer = aiResponse == null ? null : aiResponse.getContent();
+        // Old Render builds returned a fixed apology string instead of DB answers.
+        // Treat that (and FALLBACK_MARKER) as failure → answer from trip context.
+        if (answer == null
+                || answer.isBlank()
+                || OpenAiClient.FALLBACK_MARKER.equals(answer)
+                || OpenAiClient.isUnavailableApology(answer)) {
+            answer = aiPromptBuilder.buildDataDrivenAnswer(context, question);
+        }
         AiAssistantResponse response = new AiAssistantResponse();
-        response.setAnswer(aiResponse.getContent());
+        response.setAnswer(answer);
         return response;
     }
 
     /**
-     * Backend aggregates trip facts. AI only narrates from this context — never computes business rules.
+     * Backend aggregates trip facts from DB. AI only narrates from this context.
      */
     private Map<String, Object> buildTripContext(Long tripId) {
         Long driverId = SecurityUtils.requireCurrentDriverId();
@@ -103,11 +114,42 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         List<Stop> routeStops = stopRepository.findByRouteIdAndActiveTrueOrderByStopOrderAsc(
                 trip.getRoute().getId()
         );
+        String stopsOnRoute = routeStops.stream()
+                .map(stop -> (stop.getStopOrder() == null ? "?" : stop.getStopOrder())
+                        + ". " + stop.getName())
+                .collect(Collectors.joining(" | "));
 
-        Stop currentStop = trip.getCurrentStop();
+        // Align with GPS UI: current = nearest to vehicle, next = following stop on route.
+        Stop resolvedCurrent = trip.getCurrentStop();
+        Double nearestDistanceMeters = null;
+        if (trip.getCurrentLatitude() != null && trip.getCurrentLongitude() != null) {
+            Stop nearest = null;
+            double nearestDistance = Double.MAX_VALUE;
+            for (Stop stop : routeStops) {
+                if (stop.getLatitude() == null || stop.getLongitude() == null) {
+                    continue;
+                }
+                double distance = GeoUtils.distanceMeters(
+                        trip.getCurrentLatitude(),
+                        trip.getCurrentLongitude(),
+                        stop.getLatitude(),
+                        stop.getLongitude()
+                );
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearest = stop;
+                }
+            }
+            if (nearest != null) {
+                resolvedCurrent = nearest;
+                nearestDistanceMeters = nearestDistance;
+            }
+        }
+        final Stop currentStop = resolvedCurrent;
+
         Stop nextStop = null;
         int remainingStops = 0;
-        if (currentStop != null) {
+        if (currentStop != null && currentStop.getStopOrder() != null) {
             nextStop = stopRepository
                     .findFirstByRouteIdAndActiveTrueAndStopOrderGreaterThanOrderByStopOrderAsc(
                             trip.getRoute().getId(),
@@ -137,8 +179,11 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("tripId", trip.getId());
         context.put("status", trip.getStatus());
+        context.put("driverName", trip.getDriver() == null ? null : trip.getDriver().getFullName());
+        context.put("driverPhone", trip.getDriver() == null ? null : trip.getDriver().getPhoneNumber());
         context.put("routeName", trip.getRoute().getName());
         context.put("routeCode", trip.getRoute().getCode());
+        context.put("routeDescription", trip.getRoute().getDescription());
         context.put("startedAt", trip.getStartedAt());
         context.put("endedAt", trip.getEndedAt());
         context.put("currentStopName", currentStop == null ? null : currentStop.getName());
@@ -147,12 +192,14 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("nextStopOrder", nextStop == null ? null : nextStop.getStopOrder());
         context.put("remainingStopsCount", remainingStops);
         context.put("totalStopsOnRoute", routeStops.size());
+        context.put("stopsOnRoute", stopsOnRoute.isBlank() ? "(none)" : stopsOnRoute);
         context.put("totalPassengers", totalPassengers);
         context.put("passengerGroupCount", records.size());
         context.put("passengersAlightingAtCurrentStop", passengersAlightingAtCurrent);
         context.put("passengersAlightingAtNextStop", passengersAlightingAtNext);
         context.put("currentLatitude", trip.getCurrentLatitude());
         context.put("currentLongitude", trip.getCurrentLongitude());
+        context.put("nearestStopDistanceMeters", nearestDistanceMeters);
         context.put("passengerGroups", passengerSummary.isBlank() ? "(none)" : passengerSummary);
         return context;
     }

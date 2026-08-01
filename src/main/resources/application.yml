@@ -34,10 +34,10 @@ smartbus:
     stop-proximity-meters: ${GPS_STOP_PROXIMITY_METERS:50}
 
 ai:
-  provider: ${AI_PROVIDER:openai}
+  provider: ${AI_PROVIDER:openrouter}
   api-key: ${AI_API_KEY:}
-  base-url: ${AI_BASE_URL:https://api.openai.com/v1}
-  model: ${AI_MODEL:gpt-4o-mini}
+  base-url: ${AI_BASE_URL:https://openrouter.ai/api/v1}
+  model: ${AI_MODEL:deepseek/deepseek-chat}
 
 springdoc:
   swagger-ui:

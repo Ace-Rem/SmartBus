@@ -27,29 +27,28 @@ public final class TripNotificationBuilder {
             return "Đã đến bến " + currentStop.getName();
         }
 
-        if (nextStop != null) {
-            String distancePart = "";
-            if (nearestStop != null
-                    && nearestStop.getId() != null
-                    && nearestStop.getId().equals(nextStop.getId())
-                    && nearestDistanceMeters != null) {
-                distancePart = " (còn " + Math.round(nearestDistanceMeters) + "m)";
+        if (nearestStop != null && nearestDistanceMeters != null) {
+            String nearPart = "Gần nhất: " + nearestStop.getName()
+                    + " (" + Math.round(nearestDistanceMeters) + "m)";
+            if (nextStop != null) {
+                String alighting = passengersAlightingAtNextStop > 0
+                        ? " — " + passengersAlightingAtNextStop + " khách sẽ xuống"
+                        : "";
+                return nearPart + " — tiếp theo: " + nextStop.getName() + alighting;
             }
+            return nearPart + " — đang ở bến cuối tuyến";
+        }
+
+        if (nextStop != null) {
             if (passengersAlightingAtNextStop > 0) {
                 return "Bến tiếp theo: " + nextStop.getName()
-                        + distancePart
                         + " — " + passengersAlightingAtNextStop + " khách sẽ xuống";
             }
-            return "Bến tiếp theo: " + nextStop.getName() + distancePart;
+            return "Bến tiếp theo: " + nextStop.getName();
         }
 
         if (currentStop != null) {
-            return "Đang tại bến cuối: " + currentStop.getName();
-        }
-
-        if (nearestStop != null && nearestDistanceMeters != null) {
-            return "Đang di chuyển — bến gần nhất: " + nearestStop.getName()
-                    + " (" + Math.round(nearestDistanceMeters) + "m)";
+            return "Đang tại bến: " + currentStop.getName();
         }
 
         return "Đang di chuyển — chưa xác định bến";

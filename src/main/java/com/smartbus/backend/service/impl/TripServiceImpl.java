@@ -131,47 +131,27 @@ public class TripServiceImpl implements TripService {
         trip.setCurrentLatitude(latitude);
         trip.setCurrentLongitude(longitude);
 
-        List<Stop> stops = stopRepository.findByRouteIdAndActiveTrueOrderByStopOrderAsc(trip.getRoute().getId());
-        Stop nearestStop = null;
-        double nearestDistance = Double.MAX_VALUE;
-        Integer currentOrder = trip.getCurrentStop() != null ? trip.getCurrentStop().getStopOrder() : null;
-        for (Stop stop : stops) {
-            // Only allow advancing along the route (or any stop if none set yet).
-            if (currentOrder != null
-                    && stop.getStopOrder() != null
-                    && stop.getStopOrder() < currentOrder) {
-                continue;
-            }
-            double distance = GeoUtils.distanceMeters(
-                    latitude,
-                    longitude,
-                    stop.getLatitude(),
-                    stop.getLongitude()
-            );
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestStop = stop;
-            }
-        }
+        NearestStopResult nearest = findNearestStop(trip.getRoute().getId(), latitude, longitude);
+        Stop nearestStop = nearest == null ? null : nearest.stop();
+        Double nearestDistance = nearest == null ? null : nearest.distanceMeters();
 
         boolean withinThreshold = nearestStop != null
+                && nearestDistance != null
                 && nearestDistance <= gpsProperties.getStopProximityMeters();
 
-        Stop currentStop = trip.getCurrentStop();
-        Stop nextStop = null;
-        int passengersAlighting = 0;
-        int passengersAlightingAtNext = 0;
+        // Current stop for UI/API = nearest to vehicle; next = following stop on route.
+        Stop currentStop = nearestStop;
+        Stop nextStop = findNextStop(nearestStop);
 
-        if (withinThreshold) {
+        if (nearestStop != null) {
             trip.setCurrentStop(nearestStop);
-            currentStop = nearestStop;
-            nextStop = findNextStop(nearestStop);
-            passengersAlighting = sumAlighting(trip.getId(), nearestStop);
-        } else if (currentStop != null) {
-            nextStop = findNextStop(currentStop);
-            passengersAlighting = sumAlighting(trip.getId(), currentStop);
         }
 
+        int passengersAlighting = 0;
+        int passengersAlightingAtNext = 0;
+        if (withinThreshold && nearestStop != null) {
+            passengersAlighting = sumAlighting(trip.getId(), nearestStop);
+        }
         if (nextStop != null) {
             passengersAlightingAtNext = sumAlighting(trip.getId(), nextStop);
         }
@@ -181,7 +161,7 @@ public class TripServiceImpl implements TripService {
         UpdateLocationResponse response = new UpdateLocationResponse();
         response.setTrip(tripMapper.toResponse(saved));
         response.setNearestStop(stopMapper.toResponse(nearestStop));
-        response.setNearestStopDistanceMeters(nearestStop == null ? null : nearestDistance);
+        response.setNearestStopDistanceMeters(nearestDistance);
         response.setWithinThreshold(withinThreshold);
         response.setCurrentStop(stopMapper.toResponse(currentStop));
         response.setNextStop(stopMapper.toResponse(nextStop));
@@ -191,7 +171,7 @@ public class TripServiceImpl implements TripService {
                 currentStop,
                 nextStop,
                 nearestStop,
-                nearestStop == null ? null : nearestDistance,
+                nearestDistance,
                 passengersAlighting,
                 passengersAlightingAtNext
         ));
@@ -209,24 +189,71 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public StopResponse getCurrentStop() {
         Trip trip = requireCurrentTripEntity();
-        if (trip.getCurrentStop() == null) {
+        Stop current = resolveCurrentStop(trip);
+        if (current == null) {
             throw new ResourceNotFoundException("Current stop is not set for this trip");
         }
-        return stopMapper.toResponse(trip.getCurrentStop());
+        return stopMapper.toResponse(current);
     }
 
     @Override
     @Transactional(readOnly = true)
     public StopResponse getNextStop() {
         Trip trip = requireCurrentTripEntity();
-        if (trip.getCurrentStop() == null) {
+        Stop current = resolveCurrentStop(trip);
+        if (current == null) {
             throw new ResourceNotFoundException("Current stop is not set; cannot determine next stop");
         }
-        Stop nextStop = findNextStop(trip.getCurrentStop());
+        Stop nextStop = findNextStop(current);
         if (nextStop == null) {
             throw new ResourceNotFoundException("Trip is already at the last stop");
         }
         return stopMapper.toResponse(nextStop);
+    }
+
+    /**
+     * Prefer nearest stop from last GPS; fall back to persisted currentStop.
+     */
+    private Stop resolveCurrentStop(Trip trip) {
+        if (trip.getCurrentLatitude() != null && trip.getCurrentLongitude() != null) {
+            NearestStopResult nearest = findNearestStop(
+                    trip.getRoute().getId(),
+                    trip.getCurrentLatitude(),
+                    trip.getCurrentLongitude()
+            );
+            if (nearest != null && nearest.stop() != null) {
+                return nearest.stop();
+            }
+        }
+        return trip.getCurrentStop();
+    }
+
+    private NearestStopResult findNearestStop(Long routeId, BigDecimal latitude, BigDecimal longitude) {
+        if (routeId == null || latitude == null || longitude == null) {
+            return null;
+        }
+        List<Stop> stops = stopRepository.findByRouteIdAndActiveTrueOrderByStopOrderAsc(routeId);
+        Stop nearestStop = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (Stop stop : stops) {
+            if (stop.getLatitude() == null || stop.getLongitude() == null) {
+                continue;
+            }
+            double distance = GeoUtils.distanceMeters(
+                    latitude,
+                    longitude,
+                    stop.getLatitude(),
+                    stop.getLongitude()
+            );
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestStop = stop;
+            }
+        }
+        if (nearestStop == null) {
+            return null;
+        }
+        return new NearestStopResult(nearestStop, nearestDistance);
     }
 
     private Stop findNextStop(Stop currentStop) {
@@ -255,5 +282,8 @@ public class TripServiceImpl implements TripService {
             throw new ForbiddenException("Trip does not belong to current driver");
         }
         return trip;
+    }
+
+    private record NearestStopResult(Stop stop, double distanceMeters) {
     }
 }
