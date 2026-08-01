@@ -25,7 +25,7 @@ server:
 
 security:
   jwt:
-    # Local default only; override with JWT_SECRET in shared/production environments.
+    
     secret: ${JWT_SECRET:local-dev-only-change-me-32bytes-min!!}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
 
