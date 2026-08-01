@@ -16,8 +16,8 @@ WORKDIR /app
 # Copy file .jar đã build từ Bước 1 sang
 COPY --from=build /app/build/libs/*.jar app.jar
 
-# Mở port 8080 
+# Render maps external HTTPS -> container PORT (often 8080).
 EXPOSE 8080
 
-# Lệnh khởi chạy Spring Boot
+# Spring Boot reads server.port from $PORT (see application.yml).
 ENTRYPOINT ["java", "-jar", "app.jar"]

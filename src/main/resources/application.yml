@@ -17,7 +17,9 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: ${SERVER_PORT:8080}
+  # Render injects PORT; keep SERVER_PORT for local override.
+  port: ${PORT:${SERVER_PORT:8080}}
+  address: 0.0.0.0
   servlet:
     context-path: /api
 
