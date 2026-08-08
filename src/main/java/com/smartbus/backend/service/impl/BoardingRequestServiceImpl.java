@@ -69,6 +69,7 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
     @Override
     @Transactional(readOnly = true)
     public List<TripResponse> findActiveTrips(Long routeId, Long boardingStopId, Long destinationStopId) {
+        SecurityUtils.requireCurrentPassengerId();
         validateStopOrder(routeId, boardingStopId, destinationStopId);
         return tripRepository.findByRouteIdAndStatusOrderByStartedAtDesc(routeId, TripStatus.IN_PROGRESS).stream()
                 .map(tripMapper::toResponse)
@@ -176,7 +177,7 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PassengerTripTrackingResponse track(Long id) {
         Long passengerId = SecurityUtils.requireCurrentPassengerId();
         BoardingRequest request = requireRequest(id);
@@ -208,6 +209,7 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
             progressPercent = Math.min(100, Math.max(0, (completed * 100) / totalToDestination));
             if (remainingStops == 0) {
                 notification = "Bạn đã đến bến xuống.";
+                markCompletedIfNeeded(request);
             } else if (remainingStops <= 1) {
                 notification = "Sắp đến bến xuống, vui lòng chuẩn bị.";
             }
@@ -223,6 +225,32 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
         response.setProgressPercent(progressPercent);
         response.setNotification(notification);
         return response;
+    }
+
+    @Override
+    @Transactional
+    public List<BoardingRequestResponse> completeArrivedRequestsForTrip(Long tripId) {
+        return boardingRequestRepository.findByTripIdOrderByRequestedAtAsc(tripId).stream()
+                .map(request -> {
+                    Stop currentStop = request.getTrip().getCurrentStop();
+                    if (currentStop != null
+                            && currentStop.getStopOrder() != null
+                            && request.getDestinationStop() != null
+                            && request.getDestinationStop().getStopOrder() != null
+                            && currentStop.getStopOrder() >= request.getDestinationStop().getStopOrder()) {
+                        markCompletedIfNeeded(request);
+                    }
+                    return boardingRequestMapper.toResponse(request);
+                })
+                .toList();
+    }
+
+    private void markCompletedIfNeeded(BoardingRequest request) {
+        if (BoardingRequestStatus.BOARDED.equals(request.getStatus())) {
+            request.setStatus(BoardingRequestStatus.COMPLETED);
+            request.setCompletedAt(LocalDateTime.now());
+            boardingRequestRepository.save(request);
+        }
     }
 
     private BoardingRequest requireRequest(Long id) {

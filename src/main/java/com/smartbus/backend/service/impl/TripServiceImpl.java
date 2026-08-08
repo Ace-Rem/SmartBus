@@ -23,6 +23,7 @@ import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.TripService;
+import com.smartbus.backend.service.BoardingRequestService;
 import com.smartbus.backend.util.GeoUtils;
 import com.smartbus.backend.util.TripNotificationBuilder;
 import com.smartbus.backend.util.TripStatus;
@@ -43,6 +44,7 @@ public class TripServiceImpl implements TripService {
     private final TripMapper tripMapper;
     private final StopMapper stopMapper;
     private final GpsProperties gpsProperties;
+    private final BoardingRequestService boardingRequestService;
 
     public TripServiceImpl(
             TripRepository tripRepository,
@@ -52,7 +54,8 @@ public class TripServiceImpl implements TripService {
             PassengerRecordRepository passengerRecordRepository,
             TripMapper tripMapper,
             StopMapper stopMapper,
-            GpsProperties gpsProperties
+            GpsProperties gpsProperties,
+            BoardingRequestService boardingRequestService
     ) {
         this.tripRepository = tripRepository;
         this.driverRepository = driverRepository;
@@ -62,6 +65,7 @@ public class TripServiceImpl implements TripService {
         this.tripMapper = tripMapper;
         this.stopMapper = stopMapper;
         this.gpsProperties = gpsProperties;
+        this.boardingRequestService = boardingRequestService;
     }
 
     @Override
@@ -157,6 +161,9 @@ public class TripServiceImpl implements TripService {
         }
 
         Trip saved = tripRepository.save(trip);
+        if (withinThreshold && nearestStop != null) {
+            boardingRequestService.completeArrivedRequestsForTrip(saved.getId());
+        }
 
         UpdateLocationResponse response = new UpdateLocationResponse();
         response.setTrip(tripMapper.toResponse(saved));

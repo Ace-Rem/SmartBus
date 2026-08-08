@@ -21,4 +21,6 @@ public interface BoardingRequestService {
     BoardingRequestResponse cancel(Long id);
 
     PassengerTripTrackingResponse track(Long id);
+
+    List<BoardingRequestResponse> completeArrivedRequestsForTrip(Long tripId);
 }

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.smartbus.backend.util.TripNotificationBuilderTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-08T11:24:00.040Z" hostname="ace-rem" time="0.094">
+<testsuite name="com.smartbus.backend.util.TripNotificationBuilderTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-08T12:13:41.707Z" hostname="ace-rem" time="0.012">
   <properties/>
-  <testcase name="arrivedWithPassengers_buildsAlightingNotification()" classname="com.smartbus.backend.util.TripNotificationBuilderTest" time="0.039"/>
-  <testcase name="approachingNextStop_includesDistanceAndAlighting()" classname="com.smartbus.backend.util.TripNotificationBuilderTest" time="0.022"/>
-  <testcase name="noStopYet_usesNearest()" classname="com.smartbus.backend.util.TripNotificationBuilderTest" time="0.002"/>
+  <testcase name="arrivedWithPassengers_buildsAlightingNotification()" classname="com.smartbus.backend.util.TripNotificationBuilderTest" time="0.004"/>
+  <testcase name="approachingNextStop_includesDistanceAndAlighting()" classname="com.smartbus.backend.util.TripNotificationBuilderTest" time="0.004"/>
+  <testcase name="noStopYet_usesNearest()" classname="com.smartbus.backend.util.TripNotificationBuilderTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

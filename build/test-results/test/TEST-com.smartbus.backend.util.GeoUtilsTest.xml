@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.smartbus.backend.util.GeoUtilsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-08T11:24:10.508Z" hostname="ace-rem" time="0.013">
+<testsuite name="com.smartbus.backend.util.GeoUtilsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-08T12:13:41.681Z" hostname="ace-rem" time="0.009">
   <properties/>
-  <testcase name="distanceMeters_nearbyPoints_withinExpectedRange()" classname="com.smartbus.backend.util.GeoUtilsTest" time="0.006"/>
-  <testcase name="distanceMeters_samePoint_isZero()" classname="com.smartbus.backend.util.GeoUtilsTest" time="0.001"/>
+  <testcase name="distanceMeters_nearbyPoints_withinExpectedRange()" classname="com.smartbus.backend.util.GeoUtilsTest" time="0.004"/>
+  <testcase name="distanceMeters_samePoint_isZero()" classname="com.smartbus.backend.util.GeoUtilsTest" time="0.002"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
