@@ -1,7 +1,9 @@
 package com.smartbus.backend;
 
 import com.smartbus.backend.repository.DriverRepository;
+import com.smartbus.backend.repository.BoardingRequestRepository;
 import com.smartbus.backend.repository.PassengerRecordRepository;
+import com.smartbus.backend.repository.PassengerRepository;
 import com.smartbus.backend.repository.RouteRepository;
 import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
@@ -31,6 +33,12 @@ class SmartBusBackendApplicationTests {
 
     @MockBean
     private PassengerRecordRepository passengerRecordRepository;
+
+    @MockBean
+    private PassengerRepository passengerRepository;
+
+    @MockBean
+    private BoardingRequestRepository boardingRequestRepository;
 
     @Test
     void contextLoads() {

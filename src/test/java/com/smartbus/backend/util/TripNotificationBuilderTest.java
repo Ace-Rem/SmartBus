@@ -22,7 +22,7 @@ class TripNotificationBuilderTest {
         String message = TripNotificationBuilder.build(
                 false, stop(1L, "Ben A"), next, next, 40.4, 0, 5
         );
-        assertEquals("Bến tiếp theo: Ben D (còn 40m) — 5 khách sẽ xuống", message);
+        assertEquals("Gần nhất: Ben D (40m) — tiếp theo: Ben D — 5 khách sẽ xuống", message);
     }
 
     @Test
@@ -31,7 +31,7 @@ class TripNotificationBuilderTest {
         String message = TripNotificationBuilder.build(
                 false, null, null, nearest, 120.0, 0, 0
         );
-        assertEquals("Đang di chuyển — bến gần nhất: Ben A (120m)", message);
+        assertEquals("Gần nhất: Ben A (120m) — đang ở bến cuối tuyến", message);
     }
 
     private static Stop stop(Long id, String name) {

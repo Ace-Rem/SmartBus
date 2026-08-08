@@ -20,4 +20,16 @@ public final class SecurityUtils {
     public static Long requireCurrentDriverId() {
         return requireCurrentDriver().getId();
     }
+
+    public static PassengerPrincipal requireCurrentPassenger() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof PassengerPrincipal principal)) {
+            throw new UnauthorizedException("Passenger authentication required");
+        }
+        return principal;
+    }
+
+    public static Long requireCurrentPassengerId() {
+        return requireCurrentPassenger().getId();
+    }
 }

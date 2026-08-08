@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import com.smartbus.backend.entity.Passenger;
+import com.smartbus.backend.repository.PassengerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -23,13 +25,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final DriverUserDetailsService driverUserDetailsService;
+    private final PassengerRepository passengerRepository;
 
     public JwtAuthenticationFilter(
             JwtTokenProvider jwtTokenProvider,
-            DriverUserDetailsService driverUserDetailsService
+            DriverUserDetailsService driverUserDetailsService,
+            PassengerRepository passengerRepository
     ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.driverUserDetailsService = driverUserDetailsService;
+        this.passengerRepository = passengerRepository;
     }
 
     @Override
@@ -45,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 try {
                     String username = jwtTokenProvider.getSubject(token);
-                    UserDetails userDetails = driverUserDetailsService.loadUserByUsername(username);
+                    UserDetails userDetails = resolvePrincipal(token, username);
                     if (!userDetails.isEnabled()) {
                         log.debug("Rejected JWT for disabled account: {}", username);
                     } else {
@@ -66,5 +71,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private UserDetails resolvePrincipal(String token, String username) {
+        Long passengerId = jwtTokenProvider.getPassengerId(token);
+        if (passengerId != null) {
+            Passenger passenger = passengerRepository.findById(passengerId)
+                    .orElseThrow(() -> new UsernameNotFoundException("Passenger not found"));
+            return new PassengerPrincipal(
+                    passenger.getId(),
+                    passenger.getUsername(),
+                    passenger.getPasswordHash(),
+                    Boolean.TRUE.equals(passenger.getActive())
+            );
+        }
+        return driverUserDetailsService.loadUserByUsername(username);
     }
 }

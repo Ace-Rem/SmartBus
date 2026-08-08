@@ -15,6 +15,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
 
     List<Trip> findByDriverIdOrderByStartedAtDesc(Long driverId);
 
+    List<Trip> findByRouteIdAndStatusOrderByStartedAtDesc(Long routeId, String status);
+
     @Query("""
             SELECT t FROM Trip t
             JOIN FETCH t.driver

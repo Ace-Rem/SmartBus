@@ -21,11 +21,19 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String username, Long driverId) {
+        return generateToken(username, "driverId", driverId);
+    }
+
+    public String generatePassengerToken(String username, Long passengerId) {
+        return generateToken(username, "passengerId", passengerId);
+    }
+
+    private String generateToken(String username, String idClaim, Long accountId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtProperties.getExpirationMinutes() * 60_000L);
         return Jwts.builder()
                 .subject(username)
-                .claim("driverId", driverId)
+                .claim(idClaim, accountId)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
@@ -46,7 +54,15 @@ public class JwtTokenProvider {
     }
 
     public Long getDriverId(String token) {
-        Object value = parseClaims(token).get("driverId");
+        return getLongClaim(token, "driverId");
+    }
+
+    public Long getPassengerId(String token) {
+        return getLongClaim(token, "passengerId");
+    }
+
+    private Long getLongClaim(String token, String claimName) {
+        Object value = parseClaims(token).get(claimName);
         if (value instanceof Integer integerValue) {
             return integerValue.longValue();
         }
