@@ -60,7 +60,8 @@ public class PassengerServiceImpl implements PassengerService {
     @Override
     @Transactional(readOnly = true)
     public PassengerLoginResponse login(PassengerLoginRequest request) {
-        Passenger passenger = passengerRepository.findByUsername(request.getUsername())
+        String identifier = request.getUsername() == null ? "" : request.getUsername().trim();
+        Passenger passenger = passengerRepository.findByUsernameOrPhoneNumber(identifier, identifier)
                 .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
         if (!Boolean.TRUE.equals(passenger.getActive())
                 || !passwordEncoder.matches(request.getPassword(), passenger.getPasswordHash())) {
