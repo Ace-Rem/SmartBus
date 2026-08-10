@@ -2,6 +2,7 @@ package com.smartbus.backend.service.impl;
 
 import com.smartbus.backend.dto.BoardingRequestResponse;
 import com.smartbus.backend.dto.CreateBoardingRequest;
+import com.smartbus.backend.dto.NearbyActiveTripsResponse;
 import com.smartbus.backend.dto.PassengerTripTrackingResponse;
 import com.smartbus.backend.dto.TripResponse;
 import com.smartbus.backend.entity.BoardingRequest;
@@ -24,9 +25,11 @@ import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.BoardingRequestService;
 import com.smartbus.backend.util.BoardingRequestStatus;
+import com.smartbus.backend.util.GeoUtils;
 import com.smartbus.backend.util.PassengerGroupNoteBuilder;
 import com.smartbus.backend.util.TripStatus;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,6 +77,53 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
         return tripRepository.findByRouteIdAndStatusOrderByStartedAtDesc(routeId, TripStatus.IN_PROGRESS).stream()
                 .map(tripMapper::toResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NearbyActiveTripsResponse findNearbyActiveTrips(BigDecimal latitude, BigDecimal longitude) {
+        SecurityUtils.requireCurrentPassengerId();
+        if (latitude == null || longitude == null) {
+            throw new BadRequestException("Latitude and longitude are required");
+        }
+
+        Stop nearestStop = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (Stop stop : stopRepository.findByActiveTrue()) {
+            if (stop.getLatitude() == null || stop.getLongitude() == null || stop.getRoute() == null) {
+                continue;
+            }
+            double distance = GeoUtils.distanceMeters(latitude, longitude, stop.getLatitude(), stop.getLongitude());
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestStop = stop;
+            }
+        }
+        if (nearestStop == null || nearestStop.getRoute() == null) {
+            throw new ResourceNotFoundException("No nearby active stop found");
+        }
+        if (nearestStop.getStopOrder() == null) {
+            throw new BadRequestException("Nearest stop does not have route order");
+        }
+
+        Stop suggestedDestination = stopRepository
+                .findFirstByRouteIdAndActiveTrueAndStopOrderGreaterThanOrderByStopOrderDesc(
+                        nearestStop.getRoute().getId(),
+                        nearestStop.getStopOrder()
+                )
+                .orElseThrow(() -> new BadRequestException("Nearest stop is the last stop on this route"));
+
+        NearbyActiveTripsResponse response = new NearbyActiveTripsResponse();
+        response.setBoardingStop(stopMapper.toResponse(nearestStop));
+        response.setSuggestedDestinationStop(stopMapper.toResponse(suggestedDestination));
+        response.setRoute(routeMapper.toResponse(nearestStop.getRoute()));
+        response.setDistanceMeters(nearestDistance);
+        response.setTrips(tripRepository
+                .findByRouteIdAndStatusOrderByStartedAtDesc(nearestStop.getRoute().getId(), TripStatus.IN_PROGRESS)
+                .stream()
+                .map(tripMapper::toResponse)
+                .toList());
+        return response;
     }
 
     @Override

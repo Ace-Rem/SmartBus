@@ -3,6 +3,7 @@ package com.smartbus.backend.controller;
 import com.smartbus.backend.dto.ApiResponse;
 import com.smartbus.backend.dto.BoardingRequestResponse;
 import com.smartbus.backend.dto.CreateBoardingRequest;
+import com.smartbus.backend.dto.NearbyActiveTripsResponse;
 import com.smartbus.backend.dto.PassengerTripTrackingResponse;
 import com.smartbus.backend.dto.TripResponse;
 import com.smartbus.backend.service.BoardingRequestService;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +44,17 @@ public class BoardingRequestController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 boardingRequestService.findActiveTrips(routeId, boardingStopId, destinationStopId)
+        ));
+    }
+
+    @GetMapping("/nearby-active-trips")
+    @Operation(summary = "Find active trips passing nearest boarding stop")
+    public ResponseEntity<ApiResponse<NearbyActiveTripsResponse>> nearbyActiveTrips(
+            @RequestParam BigDecimal latitude,
+            @RequestParam BigDecimal longitude
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                boardingRequestService.findNearbyActiveTrips(latitude, longitude)
         ));
     }
 

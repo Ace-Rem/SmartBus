@@ -2,6 +2,7 @@ package com.smartbus.backend.service;
 
 import com.smartbus.backend.dto.BoardingRequestResponse;
 import com.smartbus.backend.dto.CreateBoardingRequest;
+import com.smartbus.backend.dto.NearbyActiveTripsResponse;
 import com.smartbus.backend.dto.PassengerTripTrackingResponse;
 import com.smartbus.backend.dto.TripResponse;
 import java.util.List;
@@ -9,6 +10,8 @@ import java.util.List;
 public interface BoardingRequestService {
 
     List<TripResponse> findActiveTrips(Long routeId, Long boardingStopId, Long destinationStopId);
+
+    NearbyActiveTripsResponse findNearbyActiveTrips(java.math.BigDecimal latitude, java.math.BigDecimal longitude);
 
     BoardingRequestResponse create(CreateBoardingRequest request);
 
