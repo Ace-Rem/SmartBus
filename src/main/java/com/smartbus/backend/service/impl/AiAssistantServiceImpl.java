@@ -57,6 +57,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Transactional(readOnly = true)
     public AiAssistantResponse chat(AiAssistantRequest request) {
         Map<String, Object> context = buildTripContext(request.getTripId());
+        mergeClientContext(context, request.getClientContext());
         String prompt = aiPromptBuilder.buildChatPrompt(context, request.getQuestion());
         return invoke(prompt, context, request.getQuestion());
     }
@@ -65,8 +66,20 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Transactional(readOnly = true)
     public AiAssistantResponse summarize(AiSummaryRequest request) {
         Map<String, Object> context = buildTripContext(request.getTripId());
+        mergeClientContext(context, request.getClientContext());
         String prompt = aiPromptBuilder.buildSummaryPrompt(context);
         return invoke(prompt, context, "tom tat chuyen");
+    }
+
+    private void mergeClientContext(Map<String, Object> context, Map<String, Object> clientContext) {
+        if (context == null || clientContext == null || clientContext.isEmpty()) {
+            return;
+        }
+        clientContext.forEach((key, value) -> {
+            if (key != null && !key.isBlank() && value != null) {
+                context.put("client." + key, value);
+            }
+        });
     }
 
     private AiAssistantResponse invoke(String prompt, Map<String, Object> context, String question) {

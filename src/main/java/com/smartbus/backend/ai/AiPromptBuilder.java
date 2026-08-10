@@ -11,10 +11,11 @@ public class AiPromptBuilder {
     public String buildChatPrompt(Map<String, Object> context, String question) {
         String sanitizedQuestion = sanitize(question);
         return """
-                Ban la tro ly ho tro tai xe SmartBus.
+                Ban la tro ly ho tro nguoi dung SmartBus (tai xe hoac hanh khach).
                 Chi dung CONTEXT ben duoi de tra loi bang tieng Viet tu nhien.
                 Khong tu tinh toan lai nghiep vu, khong bia so lieu, khong thay Business Logic.
-                Neu CONTEXT co du lieu, bat buoc tra loi cu the (ten ben, so khach,...).
+                Neu CONTEXT co du lieu, bat buoc tra loi cu the (ten ben, so khach, vi tri,...).
+                Cac khoa bat dau bang "client." la du lieu hien tai vua chon/dang hien thi tren app.
                 Khong duoc tra loi cau xin loi chung chung.
 
                 Cac cau hoi thuong gap (tra loi dua tren CONTEXT):
@@ -23,25 +24,27 @@ public class AiPromptBuilder {
                 - "Con bao nhieu ben?" -> dung remainingStopsCount
                 - "Tom tat chuyen." / "Phan tich chuyen." -> tong hop tu CONTEXT
                 - "Danh sach ben?" -> dung stopsOnRoute
+                - "Toi dang chon ben nao?" -> dung client.selectedBoardingStopName/client.selectedDestinationStopName
+                - "Vi tri cua toi?" -> dung client.currentLatitude/client.currentLongitude/client.nearbyStopName
 
-                CONTEXT (lay tu database SmartBus):
+                CONTEXT (database SmartBus + du lieu hien tai tren app):
                 %s
 
-                CAU HOI CUA TAI XE:
+                CAU HOI CUA NGUOI DUNG:
                 %s
                 """.formatted(formatContext(context), sanitizedQuestion);
     }
 
     public String buildSummaryPrompt(Map<String, Object> context) {
         return """
-                Ban la tro ly ho tro tai xe SmartBus.
+                Ban la tro ly ho tro nguoi dung SmartBus (tai xe hoac hanh khach).
                 Hay viet mot ban tom tat/phan tich ngan gon, de hieu bang tieng Viet ve chuyen xe.
                 Chi dung CONTEXT. Khong bia them du lieu, khong de xuat thay doi he thong.
                 Goi y noi dung: ten tai xe, tuyen, thoi gian, ben hien tai, ben tiep theo, tong khach,
-                khach se xuong, so ben con lai, danh sach ben, GPS neu co.
+                khach se xuong, so ben con lai, danh sach ben, GPS va cac ben dang chon tren app neu co.
                 Khong duoc tra loi cau xin loi chung chung neu CONTEXT co du lieu.
 
-                CONTEXT (lay tu database SmartBus):
+                CONTEXT (database SmartBus + du lieu hien tai tren app):
                 %s
                 """.formatted(formatContext(context));
     }
@@ -56,6 +59,17 @@ public class AiPromptBuilder {
         String q = sanitize(question).toLowerCase(Locale.ROOT);
         if (q.isBlank() || containsAny(q, "tom tat", "tóm tắt", "phan tich", "phân tích", "summary")) {
             return buildSummaryFromContext(context);
+        }
+        if (containsAny(q, "dang chon ben", "đang chọn bến", "ben dang chon", "bến đang chọn",
+                "ben di", "bến đi", "ben xuong", "bến xuống", "boarding", "destination")) {
+            return "Dữ liệu app hiện tại: bến đi đang chọn là "
+                    + value(context, "client.selectedBoardingStopName", "chưa chọn")
+                    + "; bến xuống đang chọn là "
+                    + value(context, "client.selectedDestinationStopName", "chưa chọn")
+                    + "; chuyến đang chọn: #"
+                    + value(context, "client.selectedTripId", value(context, "tripId", "?"))
+                    + ". Dữ liệu backend của chuyến: tuyến "
+                    + value(context, "routeCode", "") + " - " + value(context, "routeName", "") + ".";
         }
         if (containsAny(q, "ben tiep", "bến tiếp", "next stop", "diem den ke", "điểm đến kế")) {
             return "Bến tiếp theo: " + value(context, "nextStopName", "chưa xác định")
@@ -86,8 +100,13 @@ public class AiPromptBuilder {
                     + ". Danh sách bến: " + value(context, "stopsOnRoute", "(chưa có)") + ".";
         }
         if (containsAny(q, "gps", "vi tri", "vị trí", "toa do", "tọa độ", "location")) {
-            return "GPS hiện tại: lat=" + value(context, "currentLatitude", "—")
-                    + ", lng=" + value(context, "currentLongitude", "—") + ".";
+            return "Vị trí hiện tại trên app: lat=" + value(context, "client.currentLatitude", value(context, "currentLatitude", "—"))
+                    + ", lng=" + value(context, "client.currentLongitude", value(context, "currentLongitude", "—"))
+                    + ". Bến gần/gợi ý trên app: "
+                    + value(context, "client.nearbyStopName", value(context, "currentStopName", "chưa xác định"))
+                    + "; khoảng cách: "
+                    + value(context, "client.nearbyStopDistanceMeters", value(context, "nearestStopDistanceMeters", "—"))
+                    + " m.";
         }
         if (containsAny(q, "an toan", "an toàn", "safety", "kiem tra")) {
             return "Gợi ý an toàn: kiểm tra cửa xe, dây an toàn, tốc độ phù hợp khu dân cư; "
@@ -115,7 +134,15 @@ public class AiPromptBuilder {
                 + "; khách xuống bến hiện tại: " + value(context, "passengersAlightingAtCurrentStop", "0")
                 + "; còn " + value(context, "remainingStopsCount", "0") + "/"
                 + value(context, "totalStopsOnRoute", "0") + " bến."
-                + " Nhóm: " + value(context, "passengerGroups", "(chưa có)") + ".";
+                + " Dữ liệu app: bến đi đang chọn "
+                + value(context, "client.selectedBoardingStopName", "chưa chọn")
+                + ", bến xuống đang chọn "
+                + value(context, "client.selectedDestinationStopName", "chưa chọn")
+                + ", vị trí app lat="
+                + value(context, "client.currentLatitude", "—")
+                + ", lng="
+                + value(context, "client.currentLongitude", "—")
+                + ". Nhóm: " + value(context, "passengerGroups", "(chưa có)") + ".";
     }
 
     private String formatContext(Map<String, Object> context) {

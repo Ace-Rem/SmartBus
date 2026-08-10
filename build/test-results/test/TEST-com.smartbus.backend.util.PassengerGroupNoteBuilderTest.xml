@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-08-10T01:25:23.408Z" hostname="ace-rem" time="0.01">
+<testsuite name="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-08-10T02:06:57.805Z" hostname="ace-rem" time="0.014">
   <properties/>
-  <testcase name="build_groupFromAToD()" classname="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" time="0.002"/>
+  <testcase name="build_groupFromAToD()" classname="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" time="0.005"/>
   <testcase name="build_keepsExplicitNote()" classname="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" time="0.001"/>
   <testcase name="build_emptyWhenNoStops()" classname="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" time="0.002"/>
-  <testcase name="build_alightingOnly()" classname="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" time="0.001"/>
+  <testcase name="build_alightingOnly()" classname="com.smartbus.backend.util.PassengerGroupNoteBuilderTest" time="0.002"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
