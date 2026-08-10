@@ -20,6 +20,7 @@ import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.AiAssistantService;
 import com.smartbus.backend.util.GeoUtils;
+import com.smartbus.backend.util.TripStatus;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,8 +57,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Override
     @Transactional(readOnly = true)
     public AiAssistantResponse chat(AiAssistantRequest request) {
-        Map<String, Object> context = buildTripContext(request.getTripId());
-        mergeClientContext(context, request.getClientContext());
+        Map<String, Object> context = buildTripContext(request.getTripId(), request.getClientContext());
         String prompt = aiPromptBuilder.buildChatPrompt(context, request.getQuestion());
         return invoke(prompt, context, request.getQuestion());
     }
@@ -65,8 +65,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Override
     @Transactional(readOnly = true)
     public AiAssistantResponse summarize(AiSummaryRequest request) {
-        Map<String, Object> context = buildTripContext(request.getTripId());
-        mergeClientContext(context, request.getClientContext());
+        Map<String, Object> context = buildTripContext(request.getTripId(), request.getClientContext());
         String prompt = aiPromptBuilder.buildSummaryPrompt(context);
         return invoke(prompt, context, "tom tat chuyen");
     }
@@ -103,10 +102,12 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     /**
      * Backend aggregates trip facts from DB. AI only narrates from this context.
      */
-    private Map<String, Object> buildTripContext(Long tripId) {
+    private Map<String, Object> buildTripContext(Long tripId, Map<String, Object> clientContext) {
         Trip trip = tripRepository.findByIdWithDetails(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
-        authorizeTripContext(trip);
+        Map<String, Object> context = new LinkedHashMap<>();
+        mergeClientContext(context, clientContext);
+        authorizeTripContext(trip, context);
 
         List<PassengerRecord> records = passengerRecordRepository.findByTripIdOrderByRecordedAtAsc(tripId);
         int totalPassengers = records.stream()
@@ -190,7 +191,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                     .sumPassengerCountByTripIdAndStopId(tripId, nextStop.getId());
         }
 
-        Map<String, Object> context = new LinkedHashMap<>();
         context.put("tripId", trip.getId());
         context.put("status", trip.getStatus());
         context.put("driverName", trip.getDriver() == null ? null : trip.getDriver().getFullName());
@@ -218,7 +218,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         return context;
     }
 
-    private void authorizeTripContext(Trip trip) {
+    private void authorizeTripContext(Trip trip, Map<String, Object> context) {
         Long driverId = SecurityUtils.currentDriverIdOrNull();
         if (driverId != null) {
             if (trip.getDriver() == null || !trip.getDriver().getId().equals(driverId)) {
@@ -232,6 +232,30 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 && boardingRequestRepository.existsByPassengerIdAndTripId(passengerId, trip.getId())) {
             return;
         }
+        if (passengerId != null
+                && trip.getId() != null
+                && TripStatus.IN_PROGRESS.equals(trip.getStatus())
+                && trip.getId().equals(clientSelectedTripId(context))) {
+            return;
+        }
         throw new ForbiddenException("Trip does not belong to current account");
+    }
+
+    private Long clientSelectedTripId(Map<String, Object> context) {
+        if (context == null) {
+            return null;
+        }
+        Object raw = context.get("client.selectedTripId");
+        if (raw instanceof Number number) {
+            return number.longValue();
+        }
+        if (raw instanceof String text && !text.isBlank()) {
+            try {
+                return Long.parseLong(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 }
