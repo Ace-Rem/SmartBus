@@ -22,6 +22,16 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
             JOIN FETCH t.driver
             JOIN FETCH t.route
             LEFT JOIN FETCH t.currentStop
+            WHERE t.status = :status
+            ORDER BY t.startedAt DESC
+            """)
+    List<Trip> findByStatusOrderByStartedAtDesc(@Param("status") String status);
+
+    @Query("""
+            SELECT t FROM Trip t
+            JOIN FETCH t.driver
+            JOIN FETCH t.route
+            LEFT JOIN FETCH t.currentStop
             WHERE t.id = :id
             """)
     Optional<Trip> findByIdWithDetails(@Param("id") Long id);
