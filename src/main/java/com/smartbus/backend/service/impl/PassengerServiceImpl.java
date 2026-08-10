@@ -11,6 +11,7 @@ import com.smartbus.backend.exception.UnauthorizedException;
 import com.smartbus.backend.mapper.PassengerMapper;
 import com.smartbus.backend.repository.PassengerRepository;
 import com.smartbus.backend.security.JwtTokenProvider;
+import com.smartbus.backend.security.PassengerPrincipal;
 import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.PassengerService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -73,9 +74,17 @@ public class PassengerServiceImpl implements PassengerService {
     @Override
     @Transactional(readOnly = true)
     public PassengerResponse getMe() {
-        Long passengerId = SecurityUtils.requireCurrentPassengerId();
-        Passenger passenger = passengerRepository.findById(passengerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Passenger not found: " + passengerId));
+        PassengerPrincipal principal = SecurityUtils.requireCurrentPassenger();
+        if (principal.getFullName() != null || principal.getPhoneNumber() != null) {
+            PassengerResponse response = new PassengerResponse();
+            response.setId(principal.getId());
+            response.setUsername(principal.getUsername());
+            response.setFullName(principal.getFullName());
+            response.setPhoneNumber(principal.getPhoneNumber());
+            return response;
+        }
+        Passenger passenger = passengerRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Passenger not found: " + principal.getId()));
         return passengerMapper.toResponse(passenger);
     }
 

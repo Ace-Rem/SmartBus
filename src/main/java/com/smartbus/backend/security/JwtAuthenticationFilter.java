@@ -82,7 +82,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     passenger.getId(),
                     passenger.getUsername(),
                     passenger.getPasswordHash(),
-                    Boolean.TRUE.equals(passenger.getActive())
+                    Boolean.TRUE.equals(passenger.getActive()),
+                    passenger.getFullName(),
+                    passenger.getPhoneNumber()
             );
         }
         return driverUserDetailsService.loadUserByUsername(username);

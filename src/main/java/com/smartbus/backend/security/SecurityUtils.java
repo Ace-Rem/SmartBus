@@ -21,6 +21,14 @@ public final class SecurityUtils {
         return requireCurrentDriver().getId();
     }
 
+    public static Long currentDriverIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof DriverPrincipal principal) {
+            return principal.getId();
+        }
+        return null;
+    }
+
     public static PassengerPrincipal requireCurrentPassenger() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof PassengerPrincipal principal)) {
@@ -31,5 +39,13 @@ public final class SecurityUtils {
 
     public static Long requireCurrentPassengerId() {
         return requireCurrentPassenger().getId();
+    }
+
+    public static Long currentPassengerIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof PassengerPrincipal principal) {
+            return principal.getId();
+        }
+        return null;
     }
 }

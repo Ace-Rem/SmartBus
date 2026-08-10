@@ -185,17 +185,25 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
             throw new ForbiddenException("Boarding request does not belong to current passenger");
         }
 
-        Stop currentStop = request.getTrip().getCurrentStop();
+        Trip trip = request.getTrip();
+        Stop currentStop = trip == null ? null : trip.getCurrentStop();
         Stop nextStop = null;
         int remainingStops = 0;
         int etaMinutes = 0;
         int progressPercent = 0;
         String notification = "Chuyến xe đang được theo dõi.";
 
-        if (currentStop != null && currentStop.getStopOrder() != null) {
+        if (trip != null
+                && trip.getRoute() != null
+                && currentStop != null
+                && currentStop.getStopOrder() != null
+                && request.getDestinationStop() != null
+                && request.getDestinationStop().getStopOrder() != null
+                && request.getBoardingStop() != null
+                && request.getBoardingStop().getStopOrder() != null) {
             nextStop = stopRepository
                     .findFirstByRouteIdAndActiveTrueAndStopOrderGreaterThanOrderByStopOrderAsc(
-                            request.getTrip().getRoute().getId(),
+                            trip.getRoute().getId(),
                             currentStop.getStopOrder()
                     )
                     .orElse(null);
@@ -217,7 +225,7 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
 
         PassengerTripTrackingResponse response = new PassengerTripTrackingResponse();
         response.setBoardingRequest(boardingRequestMapper.toResponse(request));
-        response.setRoute(routeMapper.toResponse(request.getTrip().getRoute()));
+        response.setRoute(routeMapper.toResponse(trip == null ? null : trip.getRoute()));
         response.setCurrentStop(stopMapper.toResponse(currentStop));
         response.setNextStop(stopMapper.toResponse(nextStop));
         response.setRemainingStops(remainingStops);
@@ -263,6 +271,9 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
                 .orElseThrow(() -> new BadRequestException("Boarding stop does not belong to route"));
         Stop destinationStop = stopRepository.findByIdAndRouteId(destinationStopId, routeId)
                 .orElseThrow(() -> new BadRequestException("Destination stop does not belong to route"));
+        if (boardingStop.getStopOrder() == null || destinationStop.getStopOrder() == null) {
+            throw new BadRequestException("Boarding and destination stops must have route order");
+        }
         if (destinationStop.getStopOrder() <= boardingStop.getStopOrder()) {
             throw new BadRequestException("Destination stop must be after boarding stop");
         }

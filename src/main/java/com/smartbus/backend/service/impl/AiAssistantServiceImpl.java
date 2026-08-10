@@ -14,6 +14,7 @@ import com.smartbus.backend.entity.Trip;
 import com.smartbus.backend.exception.ForbiddenException;
 import com.smartbus.backend.exception.ResourceNotFoundException;
 import com.smartbus.backend.repository.PassengerRecordRepository;
+import com.smartbus.backend.repository.BoardingRequestRepository;
 import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AiAssistantServiceImpl implements AiAssistantService {
 
     private final TripRepository tripRepository;
+    private final BoardingRequestRepository boardingRequestRepository;
     private final PassengerRecordRepository passengerRecordRepository;
     private final StopRepository stopRepository;
     private final AiPromptBuilder aiPromptBuilder;
@@ -37,12 +39,14 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     public AiAssistantServiceImpl(
             TripRepository tripRepository,
+            BoardingRequestRepository boardingRequestRepository,
             PassengerRecordRepository passengerRecordRepository,
             StopRepository stopRepository,
             AiPromptBuilder aiPromptBuilder,
             AiClient aiClient
     ) {
         this.tripRepository = tripRepository;
+        this.boardingRequestRepository = boardingRequestRepository;
         this.passengerRecordRepository = passengerRecordRepository;
         this.stopRepository = stopRepository;
         this.aiPromptBuilder = aiPromptBuilder;
@@ -87,12 +91,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
      * Backend aggregates trip facts from DB. AI only narrates from this context.
      */
     private Map<String, Object> buildTripContext(Long tripId) {
-        Long driverId = SecurityUtils.requireCurrentDriverId();
         Trip trip = tripRepository.findByIdWithDetails(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
-        if (!trip.getDriver().getId().equals(driverId)) {
-            throw new ForbiddenException("Trip does not belong to current driver");
-        }
+        authorizeTripContext(trip);
 
         List<PassengerRecord> records = passengerRecordRepository.findByTripIdOrderByRecordedAtAsc(tripId);
         int totalPassengers = records.stream()
@@ -111,9 +112,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 })
                 .collect(Collectors.joining("; "));
 
-        List<Stop> routeStops = stopRepository.findByRouteIdAndActiveTrueOrderByStopOrderAsc(
-                trip.getRoute().getId()
-        );
+        List<Stop> routeStops = trip.getRoute() == null
+                ? List.of()
+                : stopRepository.findByRouteIdAndActiveTrueOrderByStopOrderAsc(trip.getRoute().getId());
         String stopsOnRoute = routeStops.stream()
                 .map(stop -> (stop.getStopOrder() == null ? "?" : stop.getStopOrder())
                         + ". " + stop.getName())
@@ -149,7 +150,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
         Stop nextStop = null;
         int remainingStops = 0;
-        if (currentStop != null && currentStop.getStopOrder() != null) {
+        if (currentStop != null && currentStop.getStopOrder() != null && trip.getRoute() != null) {
             nextStop = stopRepository
                     .findFirstByRouteIdAndActiveTrueAndStopOrderGreaterThanOrderByStopOrderAsc(
                             trip.getRoute().getId(),
@@ -181,9 +182,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("status", trip.getStatus());
         context.put("driverName", trip.getDriver() == null ? null : trip.getDriver().getFullName());
         context.put("driverPhone", trip.getDriver() == null ? null : trip.getDriver().getPhoneNumber());
-        context.put("routeName", trip.getRoute().getName());
-        context.put("routeCode", trip.getRoute().getCode());
-        context.put("routeDescription", trip.getRoute().getDescription());
+        context.put("routeName", trip.getRoute() == null ? null : trip.getRoute().getName());
+        context.put("routeCode", trip.getRoute() == null ? null : trip.getRoute().getCode());
+        context.put("routeDescription", trip.getRoute() == null ? null : trip.getRoute().getDescription());
         context.put("startedAt", trip.getStartedAt());
         context.put("endedAt", trip.getEndedAt());
         context.put("currentStopName", currentStop == null ? null : currentStop.getName());
@@ -202,5 +203,22 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("nearestStopDistanceMeters", nearestDistanceMeters);
         context.put("passengerGroups", passengerSummary.isBlank() ? "(none)" : passengerSummary);
         return context;
+    }
+
+    private void authorizeTripContext(Trip trip) {
+        Long driverId = SecurityUtils.currentDriverIdOrNull();
+        if (driverId != null) {
+            if (trip.getDriver() == null || !trip.getDriver().getId().equals(driverId)) {
+                throw new ForbiddenException("Trip does not belong to current driver");
+            }
+            return;
+        }
+        Long passengerId = SecurityUtils.currentPassengerIdOrNull();
+        if (passengerId != null
+                && trip.getId() != null
+                && boardingRequestRepository.existsByPassengerIdAndTripId(passengerId, trip.getId())) {
+            return;
+        }
+        throw new ForbiddenException("Trip does not belong to current account");
     }
 }

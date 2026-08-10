@@ -12,16 +12,39 @@ public class PassengerPrincipal implements UserDetails {
     private final String username;
     private final String passwordHash;
     private final boolean active;
+    private final String fullName;
+    private final String phoneNumber;
 
     public PassengerPrincipal(Long id, String username, String passwordHash, boolean active) {
+        this(id, username, passwordHash, active, null, null);
+    }
+
+    public PassengerPrincipal(
+            Long id,
+            String username,
+            String passwordHash,
+            boolean active,
+            String fullName,
+            String phoneNumber
+    ) {
         this.id = id;
         this.username = username;
         this.passwordHash = passwordHash;
         this.active = active;
+        this.fullName = fullName;
+        this.phoneNumber = phoneNumber;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
     }
 
     @Override

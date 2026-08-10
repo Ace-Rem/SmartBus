@@ -13,6 +13,8 @@ public interface BoardingRequestRepository extends JpaRepository<BoardingRequest
 
     List<BoardingRequest> findByTripIdOrderByRequestedAtAsc(Long tripId);
 
+    boolean existsByPassengerIdAndTripId(Long passengerId, Long tripId);
+
     @Query("""
             SELECT br FROM BoardingRequest br
             JOIN FETCH br.passenger
