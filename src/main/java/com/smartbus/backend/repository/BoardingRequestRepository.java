@@ -1,6 +1,7 @@
 package com.smartbus.backend.repository;
 
 import com.smartbus.backend.entity.BoardingRequest;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,23 @@ public interface BoardingRequestRepository extends JpaRepository<BoardingRequest
     List<BoardingRequest> findByTripIdOrderByRequestedAtAsc(Long tripId);
 
     boolean existsByPassengerIdAndTripId(Long passengerId, Long tripId);
+
+    @Query("""
+            SELECT br FROM BoardingRequest br
+            WHERE br.passenger.id = :passengerId
+              AND br.trip.id = :tripId
+              AND br.boardingStop.id = :boardingStopId
+              AND br.destinationStop.id = :destinationStopId
+              AND br.status IN :statuses
+            ORDER BY br.requestedAt DESC
+            """)
+    List<BoardingRequest> findMatchingOpenRequests(
+            @Param("passengerId") Long passengerId,
+            @Param("tripId") Long tripId,
+            @Param("boardingStopId") Long boardingStopId,
+            @Param("destinationStopId") Long destinationStopId,
+            @Param("statuses") Collection<String> statuses
+    );
 
     @Query("""
             SELECT br FROM BoardingRequest br

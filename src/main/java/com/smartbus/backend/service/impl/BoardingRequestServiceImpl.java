@@ -135,13 +135,26 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
         Trip trip = tripRepository.findByIdWithDetails(request.getTripId())
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + request.getTripId()));
         if (!TripStatus.IN_PROGRESS.equals(trip.getStatus())) {
-            throw new BadRequestException("Boarding request requires an in-progress trip");
+            Long routeId = trip.getRoute().getId();
+            trip = tripRepository.findFirstByRouteIdAndStatusOrderByStartedAtDesc(routeId, TripStatus.IN_PROGRESS)
+                    .orElseThrow(() -> new BadRequestException("Boarding request requires an in-progress trip"));
         }
         Stop[] stops = validateStopOrder(
                 trip.getRoute().getId(),
                 request.getBoardingStopId(),
                 request.getDestinationStopId()
         );
+        List<BoardingRequest> existing = boardingRequestRepository
+                .findMatchingOpenRequests(
+                        passengerId,
+                        trip.getId(),
+                        stops[0].getId(),
+                        stops[1].getId(),
+                        List.of(BoardingRequestStatus.PENDING, BoardingRequestStatus.CONFIRMED)
+                );
+        if (!existing.isEmpty()) {
+            return boardingRequestMapper.toResponse(existing.get(0));
+        }
 
         BoardingRequest boardingRequest = new BoardingRequest();
         boardingRequest.setPassenger(passenger);
