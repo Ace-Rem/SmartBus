@@ -11,7 +11,6 @@ import com.smartbus.backend.entity.Route;
 import com.smartbus.backend.entity.Stop;
 import com.smartbus.backend.entity.Trip;
 import com.smartbus.backend.exception.BadRequestException;
-import com.smartbus.backend.exception.ConflictException;
 import com.smartbus.backend.exception.ForbiddenException;
 import com.smartbus.backend.exception.ResourceNotFoundException;
 import com.smartbus.backend.mapper.StopMapper;
@@ -72,9 +71,10 @@ public class TripServiceImpl implements TripService {
     @Transactional
     public TripResponse startTrip(CreateTripRequest request) {
         Long driverId = SecurityUtils.requireCurrentDriverId();
-        tripRepository.findByDriverIdAndStatus(driverId, TripStatus.IN_PROGRESS).ifPresent(trip -> {
-            throw new ConflictException("Driver already has an in-progress trip");
-        });
+        var currentTrip = tripRepository.findByDriverIdAndStatus(driverId, TripStatus.IN_PROGRESS);
+        if (currentTrip.isPresent()) {
+            return tripMapper.toResponse(currentTrip.get());
+        }
 
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new ResourceNotFoundException("Driver not found: " + driverId));
