@@ -205,12 +205,12 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
 
         PassengerRecord record = new PassengerRecord();
         record.setTrip(trip);
-        record.setStop(request.getDestinationStop());
+        record.setStop(null);
         record.setPassengerCount(1);
         record.setNote(PassengerGroupNoteBuilder.build(
                 request.getBoardingStop(),
-                request.getDestinationStop(),
-                request.getNote()
+                null,
+                "Tổng khách check-in từ app hành khách"
         ));
         PassengerRecord savedRecord = passengerRecordRepository.save(record);
 
