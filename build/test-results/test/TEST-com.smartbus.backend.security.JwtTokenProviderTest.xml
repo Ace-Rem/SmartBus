@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.smartbus.backend.security.JwtTokenProviderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-06T02:55:18.537Z" hostname="ace-rem" time="0.17">
+<testsuite name="com.smartbus.backend.security.JwtTokenProviderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-06T06:34:42.511Z" hostname="ace-rem" time="0.199">
   <properties/>
-  <testcase name="generateAndValidateToken()" classname="com.smartbus.backend.security.JwtTokenProviderTest" time="0.169"/>
+  <testcase name="generateAndValidateToken()" classname="com.smartbus.backend.security.JwtTokenProviderTest" time="0.197"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

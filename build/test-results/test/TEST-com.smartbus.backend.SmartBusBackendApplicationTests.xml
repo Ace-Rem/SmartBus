@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.smartbus.backend.SmartBusBackendApplicationTests" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-06T02:55:10.217Z" hostname="ace-rem" time="8.312">
+<testsuite name="com.smartbus.backend.SmartBusBackendApplicationTests" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-06T06:34:33.814Z" hostname="ace-rem" time="8.69">
   <properties/>
-  <testcase name="contextLoads()" classname="com.smartbus.backend.SmartBusBackendApplicationTests" time="0.044"/>
-  <system-out><![CDATA[09:55:10.494 [Test worker] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.smartbus.backend.SmartBusBackendApplicationTests]: SmartBusBackendApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-09:55:10.689 [Test worker] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.smartbus.backend.SmartBusBackendApplication for test class com.smartbus.backend.SmartBusBackendApplicationTests
+  <testcase name="contextLoads()" classname="com.smartbus.backend.SmartBusBackendApplicationTests" time="0.038"/>
+  <system-out><![CDATA[13:34:34.098 [Test worker] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.smartbus.backend.SmartBusBackendApplicationTests]: SmartBusBackendApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+13:34:34.309 [Test worker] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.smartbus.backend.SmartBusBackendApplication for test class com.smartbus.backend.SmartBusBackendApplicationTests
 
   .   ____          _            __ _ _
  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
@@ -14,21 +14,21 @@
 
  :: Spring Boot ::                (v3.3.5)
 
-2026-09-06T09:55:11.444+07:00  INFO 8290 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : Starting SmartBusBackendApplicationTests using Java 21.0.11 with PID 8290 (started by ace-rem in /home/ace-rem/Videos/Huy/1SmartBusProject/SmartBusProject/smartbus-backend)
-2026-09-06T09:55:11.446+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : Running with Spring Boot v3.3.5, Spring v6.1.14
-2026-09-06T09:55:11.448+07:00  INFO 8290 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : No active profile set, falling back to 1 default profile: "default"
-2026-09-06T09:55:11.450+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] o.s.boot.SpringApplication               : Loading source class com.smartbus.backend.SmartBusBackendApplication
-2026-09-06T09:55:11.503+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] o.s.w.c.s.GenericWebApplicationContext   : Refreshing org.springframework.web.context.support.GenericWebApplicationContext@4441d567
-2026-09-06T09:55:16.140+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] o.s.b.a.AutoConfigurationPackages        : @EnableAutoConfiguration was declared on a class in the package 'com.smartbus.backend'. Automatic @Repository and @Entity scanning is enabled.
-2026-09-06T09:55:16.565+07:00  INFO 8290 --- [smartbus-backend] [    Test worker] com.smartbus.backend.ai.OpenAiClient     : AI client ready: provider=openrouter, model=deepseek/deepseek-chat, baseUrl=https://openrouter.ai/api/v1, apiKeyConfigured=false
-2026-09-06T09:55:16.568+07:00  WARN 8290 --- [smartbus-backend] [    Test worker] com.smartbus.backend.ai.OpenAiClient     : AI_API_KEY is empty — chat will use DB data-driven answers until key is set on Render
-2026-09-06T09:55:17.001+07:00  INFO 8290 --- [smartbus-backend] [    Test worker] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
-2026-09-06T09:55:17.003+07:00  WARN 8290 --- [smartbus-backend] [    Test worker] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used for username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider.
-2026-09-06T09:55:17.259+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] s.w.s.m.m.a.RequestMappingHandlerMapping : 37 mappings in 'requestMappingHandlerMapping'
-2026-09-06T09:55:17.374+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] o.s.w.s.handler.SimpleUrlHandlerMapping  : Patterns [/webjars/**, /**, /swagger-ui*/*swagger-initializer.js, /swagger-ui*/**] in 'resourceHandlerMapping'
-2026-09-06T09:55:17.794+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] s.w.s.m.m.a.RequestMappingHandlerAdapter : ControllerAdvice beans: 0 @ModelAttribute, 0 @InitBinder, 1 RequestBodyAdvice, 1 ResponseBodyAdvice
-2026-09-06T09:55:17.850+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] .m.m.a.ExceptionHandlerExceptionResolver : ControllerAdvice beans: 2 @ExceptionHandler, 1 ResponseBodyAdvice
-2026-09-06T09:55:18.167+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] .s.b.a.l.ConditionEvaluationReportLogger : 
+2026-09-06T13:34:35.091+07:00  INFO 15997 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : Starting SmartBusBackendApplicationTests using Java 21.0.11 with PID 15997 (started by ace-rem in /home/ace-rem/Videos/Huy/SmartBusProject/smartbus-backend)
+2026-09-06T13:34:35.093+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : Running with Spring Boot v3.3.5, Spring v6.1.14
+2026-09-06T13:34:35.094+07:00  INFO 15997 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : No active profile set, falling back to 1 default profile: "default"
+2026-09-06T13:34:35.096+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] o.s.boot.SpringApplication               : Loading source class com.smartbus.backend.SmartBusBackendApplication
+2026-09-06T13:34:35.154+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] o.s.w.c.s.GenericWebApplicationContext   : Refreshing org.springframework.web.context.support.GenericWebApplicationContext@7cb2651f
+2026-09-06T13:34:39.806+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] o.s.b.a.AutoConfigurationPackages        : @EnableAutoConfiguration was declared on a class in the package 'com.smartbus.backend'. Automatic @Repository and @Entity scanning is enabled.
+2026-09-06T13:34:40.470+07:00  INFO 15997 --- [smartbus-backend] [    Test worker] com.smartbus.backend.ai.OpenAiClient     : AI client ready: provider=openrouter, model=deepseek/deepseek-chat, baseUrl=https://openrouter.ai/api/v1, apiKeyConfigured=false
+2026-09-06T13:34:40.472+07:00  WARN 15997 --- [smartbus-backend] [    Test worker] com.smartbus.backend.ai.OpenAiClient     : AI_API_KEY is empty — chat will use DB data-driven answers until key is set on Render
+2026-09-06T13:34:40.980+07:00  INFO 15997 --- [smartbus-backend] [    Test worker] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
+2026-09-06T13:34:40.981+07:00  WARN 15997 --- [smartbus-backend] [    Test worker] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used for username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider.
+2026-09-06T13:34:41.259+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] s.w.s.m.m.a.RequestMappingHandlerMapping : 37 mappings in 'requestMappingHandlerMapping'
+2026-09-06T13:34:41.378+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] o.s.w.s.handler.SimpleUrlHandlerMapping  : Patterns [/webjars/**, /**, /swagger-ui*/*swagger-initializer.js, /swagger-ui*/**] in 'resourceHandlerMapping'
+2026-09-06T13:34:41.726+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] s.w.s.m.m.a.RequestMappingHandlerAdapter : ControllerAdvice beans: 0 @ModelAttribute, 0 @InitBinder, 1 RequestBodyAdvice, 1 ResponseBodyAdvice
+2026-09-06T13:34:41.778+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] .m.m.a.ExceptionHandlerExceptionResolver : ControllerAdvice beans: 2 @ExceptionHandler, 1 ResponseBodyAdvice
+2026-09-06T13:34:42.126+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] .s.b.a.l.ConditionEvaluationReportLogger : 
 
 
 ============================
@@ -1329,13 +1329,13 @@ Unconditional classes:
 
 
 
-2026-09-06T09:55:18.268+07:00  INFO 8290 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : Started SmartBusBackendApplicationTests in 7.327 seconds (process running for 9.209)
-2026-09-06T09:55:18.271+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] o.s.b.a.ApplicationAvailabilityBean      : Application availability state LivenessState changed to CORRECT
+2026-09-06T13:34:42.235+07:00  INFO 15997 --- [smartbus-backend] [    Test worker] c.s.b.SmartBusBackendApplicationTests    : Started SmartBusBackendApplicationTests in 7.663 seconds (process running for 9.932)
+2026-09-06T13:34:42.241+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] o.s.b.a.ApplicationAvailabilityBean      : Application availability state LivenessState changed to CORRECT
 ==============================
 Password: 123456
-BCrypt  : $2a$10$LWeP3Y/CVXZjK8Jkxldx4.vzuLUVQxvkW7c3TdAn5b0Z51NvOBfKG
+BCrypt  : $2a$10$QfKFF6nEWc0Z6Tymnb3rrOBHU30HLklk5KgNxrGRbwimTmk9NnKMK
 ==============================
-2026-09-06T09:55:18.451+07:00 DEBUG 8290 --- [smartbus-backend] [    Test worker] o.s.b.a.ApplicationAvailabilityBean      : Application availability state ReadinessState changed to ACCEPTING_TRAFFIC
+2026-09-06T13:34:42.439+07:00 DEBUG 15997 --- [smartbus-backend] [    Test worker] o.s.b.a.ApplicationAvailabilityBean      : Application availability state ReadinessState changed to ACCEPTING_TRAFFIC
 ]]></system-out>
   <system-err><![CDATA[WARNING: A Java agent has been loaded dynamically (/tmp/gradle-cache/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.14.19/154da3a65b4f4a909d3e5bdec55d1b2b4cbb6ce1/byte-buddy-agent-1.14.19.jar)
 WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
