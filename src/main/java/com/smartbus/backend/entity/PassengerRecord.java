@@ -28,6 +28,16 @@ public class PassengerRecord {
     @JoinColumn(name = "stop_id")
     private Stop stop;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "boarding_stop_id")
+    private Stop boardingStop;
+
+    @Column(name = "source", length = 30)
+    private String source;
+
+    @Column(name = "idempotency_key", length = 160)
+    private String idempotencyKey;
+
     @Column(name = "passenger_count", nullable = false)
     private Integer passengerCount;
 
@@ -68,6 +78,14 @@ public class PassengerRecord {
         this.stop = stop;
     }
 
+    public Stop getBoardingStop() {
+        return boardingStop;
+    }
+
+    public void setBoardingStop(Stop boardingStop) {
+        this.boardingStop = boardingStop;
+    }
+
     public Integer getPassengerCount() {
         return passengerCount;
     }
@@ -90,5 +108,21 @@ public class PassengerRecord {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 }

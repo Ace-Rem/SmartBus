@@ -198,6 +198,9 @@ public class BoardingRequestServiceImpl implements BoardingRequestService {
         if (!trip.getDriver().getId().equals(driverId)) {
             throw new ForbiddenException("Trip does not belong to current driver");
         }
+        if (BoardingRequestStatus.BOARDED.equals(request.getStatus()) && request.getPassengerRecord() != null) {
+            return boardingRequestMapper.toResponse(request);
+        }
         if (!BoardingRequestStatus.PENDING.equals(request.getStatus())
                 && !BoardingRequestStatus.CONFIRMED.equals(request.getStatus())) {
             throw new BadRequestException("Boarding request cannot be boarded from status " + request.getStatus());

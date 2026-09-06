@@ -53,17 +53,34 @@ public class PassengerRecordServiceImpl implements PassengerRecordService {
         if (!TripStatus.IN_PROGRESS.equals(trip.getStatus())) {
             throw new BadRequestException("Passenger records can only be added to an in-progress trip");
         }
+        if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank()) {
+            PassengerRecord existing = passengerRecordRepository
+                    .findByTripIdAndIdempotencyKey(trip.getId(), request.getIdempotencyKey())
+                    .orElse(null);
+            if (existing != null) {
+                return passengerRecordMapper.toResponse(existing);
+            }
+        }
 
         // stopId = bến xuống (alighting). Một PassengerRecord = một nhóm, không quản lý cá nhân.
+        Long destinationStopId = request.getDestinationStopId() != null
+                ? request.getDestinationStopId()
+                : request.getStopId();
         Stop alightingStop = null;
-        if (request.getStopId() != null) {
-            alightingStop = stopRepository.findByIdAndRouteId(request.getStopId(), trip.getRoute().getId())
+        if (destinationStopId != null) {
+            alightingStop = stopRepository.findByIdAndRouteId(destinationStopId, trip.getRoute().getId())
                     .orElseThrow(() -> new BadRequestException(
-                            "Stop does not belong to the trip route: " + request.getStopId()
+                            "Stop does not belong to the trip route: " + destinationStopId
                     ));
         }
 
         Stop boardingStop = trip.getCurrentStop();
+        if (request.getBoardingStopId() != null) {
+            boardingStop = stopRepository.findByIdAndRouteId(request.getBoardingStopId(), trip.getRoute().getId())
+                    .orElseThrow(() -> new BadRequestException(
+                            "Boarding stop does not belong to the trip route: " + request.getBoardingStopId()
+                    ));
+        }
         if (alightingStop != null && boardingStop != null
                 && alightingStop.getStopOrder() != null
                 && boardingStop.getStopOrder() != null
@@ -76,8 +93,11 @@ public class PassengerRecordServiceImpl implements PassengerRecordService {
         PassengerRecord record = new PassengerRecord();
         record.setTrip(trip);
         record.setStop(alightingStop);
+        record.setBoardingStop(boardingStop);
         record.setPassengerCount(request.getPassengerCount());
         record.setNote(PassengerGroupNoteBuilder.build(boardingStop, alightingStop, request.getNote()));
+        record.setSource(request.getSource());
+        record.setIdempotencyKey(request.getIdempotencyKey());
 
         PassengerRecord saved = passengerRecordRepository.save(record);
         return passengerRecordMapper.toResponse(saved);

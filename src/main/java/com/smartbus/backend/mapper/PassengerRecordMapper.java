@@ -18,10 +18,16 @@ public class PassengerRecordMapper {
         }
         if (passengerRecord.getStop() != null) {
             response.setStopId(passengerRecord.getStop().getId());
+            response.setDestinationStopId(passengerRecord.getStop().getId());
+        }
+        if (passengerRecord.getBoardingStop() != null) {
+            response.setBoardingStopId(passengerRecord.getBoardingStop().getId());
         }
         response.setPassengerCount(passengerRecord.getPassengerCount());
         response.setRecordedAt(passengerRecord.getRecordedAt());
         response.setNote(passengerRecord.getNote());
+        response.setSource(passengerRecord.getSource());
+        response.setIdempotencyKey(passengerRecord.getIdempotencyKey());
         return response;
     }
 }

@@ -9,12 +9,16 @@ public class CreatePassengerRecordRequest {
     private Long tripId;
 
     private Long stopId;
+    private Long boardingStopId;
+    private Long destinationStopId;
 
     @NotNull
     @PositiveOrZero
     private Integer passengerCount;
 
     private String note;
+    private String source;
+    private String idempotencyKey;
 
     public Long getTripId() {
         return tripId;
@@ -32,6 +36,22 @@ public class CreatePassengerRecordRequest {
         this.stopId = stopId;
     }
 
+    public Long getBoardingStopId() {
+        return boardingStopId;
+    }
+
+    public void setBoardingStopId(Long boardingStopId) {
+        this.boardingStopId = boardingStopId;
+    }
+
+    public Long getDestinationStopId() {
+        return destinationStopId;
+    }
+
+    public void setDestinationStopId(Long destinationStopId) {
+        this.destinationStopId = destinationStopId;
+    }
+
     public Integer getPassengerCount() {
         return passengerCount;
     }
@@ -46,5 +66,21 @@ public class CreatePassengerRecordRequest {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 }
