@@ -2,9 +2,12 @@ package com.smartbus.backend.controller;
 
 import com.smartbus.backend.dto.AiAssistantRequest;
 import com.smartbus.backend.dto.AiAssistantResponse;
+import com.smartbus.backend.dto.AiContextSyncRequest;
+import com.smartbus.backend.dto.AiContextSyncResponse;
 import com.smartbus.backend.dto.AiSummaryRequest;
 import com.smartbus.backend.dto.ApiResponse;
 import com.smartbus.backend.service.AiAssistantService;
+import com.smartbus.backend.service.AiContextService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,9 +25,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class AiController {
 
     private final AiAssistantService aiAssistantService;
+    private final AiContextService aiContextService;
 
-    public AiController(AiAssistantService aiAssistantService) {
+    public AiController(AiAssistantService aiAssistantService, AiContextService aiContextService) {
         this.aiAssistantService = aiAssistantService;
+        this.aiContextService = aiContextService;
+    }
+
+    @PostMapping("/context")
+    @Operation(summary = "Store latest local AI context without invoking AI")
+    public ResponseEntity<ApiResponse<AiContextSyncResponse>> syncContext(
+            @Valid @RequestBody AiContextSyncRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(aiContextService.sync(request)));
     }
 
     @PostMapping("/chat")

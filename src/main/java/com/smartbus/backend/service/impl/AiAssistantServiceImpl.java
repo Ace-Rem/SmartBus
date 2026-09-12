@@ -19,6 +19,7 @@ import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.AiAssistantService;
+import com.smartbus.backend.service.AiContextService;
 import com.smartbus.backend.util.GeoUtils;
 import com.smartbus.backend.util.TripStatus;
 import java.util.LinkedHashMap;
@@ -37,6 +38,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final StopRepository stopRepository;
     private final AiPromptBuilder aiPromptBuilder;
     private final AiClient aiClient;
+    private final AiContextService aiContextService;
 
     public AiAssistantServiceImpl(
             TripRepository tripRepository,
@@ -44,7 +46,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             PassengerRecordRepository passengerRecordRepository,
             StopRepository stopRepository,
             AiPromptBuilder aiPromptBuilder,
-            AiClient aiClient
+            AiClient aiClient,
+            AiContextService aiContextService
     ) {
         this.tripRepository = tripRepository;
         this.boardingRequestRepository = boardingRequestRepository;
@@ -52,6 +55,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.stopRepository = stopRepository;
         this.aiPromptBuilder = aiPromptBuilder;
         this.aiClient = aiClient;
+        this.aiContextService = aiContextService;
     }
 
     @Override
@@ -103,10 +107,34 @@ public class AiAssistantServiceImpl implements AiAssistantService {
      * Backend aggregates trip facts from DB. AI only narrates from this context.
      */
     private Map<String, Object> buildTripContext(Long tripId, Map<String, Object> clientContext) {
-        Trip trip = tripRepository.findByIdWithDetails(tripId)
-                .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
         Map<String, Object> context = new LinkedHashMap<>();
+        mergeClientContext(context, aiContextService.loadForCurrentAccount(tripId));
         mergeClientContext(context, clientContext);
+        Trip trip = tripRepository.findByIdWithDetails(tripId).orElse(null);
+        if (trip == null) {
+            if (context.isEmpty()) {
+                throw new ResourceNotFoundException("Trip not found: " + tripId);
+            }
+            promoteClientValue(context, "tripId", "currentTripId", "selectedTripId");
+            promoteClientValue(context, "status", "tripStatus", "currentTripStatus");
+            promoteClientValue(context, "routeName", "currentRouteName", "selectedRouteName");
+            promoteClientValue(context, "routeCode", "currentRouteCode", "selectedRouteCode");
+            promoteClientValue(context, "currentStopName", "currentStopName");
+            promoteClientValue(context, "currentStopOrder", "currentStopOrder");
+            promoteClientValue(context, "nextStopName", "nextStopName");
+            promoteClientValue(context, "nextStopOrder", "nextStopOrder");
+            promoteClientValue(context, "currentLatitude", "currentLatitude");
+            promoteClientValue(context, "currentLongitude", "currentLongitude");
+            promoteClientValue(context, "totalPassengers", "totalPassengers", "passengerTotal", "passengerTotalOnBoard");
+            promoteClientValue(context, "passengerGroupCount", "passengerGroupCount");
+            promoteClientValue(context, "passengerGroups", "passengerGroups");
+            promoteClientValue(context, "stopsOnRoute", "stopsOnRoute");
+            promoteClientValue(context, "remainingStopsCount", "remainingStopsCount");
+            promoteClientValue(context, "totalStopsOnRoute", "totalStopsOnRoute");
+            context.putIfAbsent("tripId", tripId);
+            context.putIfAbsent("status", "LOCAL_CONTEXT_ONLY");
+            return context;
+        }
         authorizeTripContext(trip, context);
 
         List<PassengerRecord> records = passengerRecordRepository.findByTripIdOrderByRecordedAtAsc(tripId);
@@ -216,6 +244,17 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("nearestStopDistanceMeters", nearestDistanceMeters);
         context.put("passengerGroups", passengerSummary.isBlank() ? "(none)" : passengerSummary);
         return context;
+    }
+
+    private void promoteClientValue(Map<String, Object> context, String target, String... candidates) {
+        if (context.get(target) != null) return;
+        for (String candidate : candidates) {
+            Object value = context.get("client." + candidate);
+            if (value != null) {
+                context.put(target, value);
+                return;
+            }
+        }
     }
 
     private void authorizeTripContext(Trip trip, Map<String, Object> context) {
