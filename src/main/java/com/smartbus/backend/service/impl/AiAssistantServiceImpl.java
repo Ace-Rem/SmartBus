@@ -138,8 +138,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             promoteClientValue(context, "currentStopOrder", "currentStopOrder");
             promoteClientValue(context, "nextStopName", "nextStopName");
             promoteClientValue(context, "nextStopOrder", "nextStopOrder");
-            promoteClientValue(context, "currentLatitude", "currentLatitude");
-            promoteClientValue(context, "currentLongitude", "currentLongitude");
             promoteClientValue(context, "totalPassengers", "totalPassengers", "passengerTotal", "passengerTotalOnBoard");
             promoteClientValue(context, "passengerGroupCount", "passengerGroupCount");
             promoteClientValue(context, "passengerGroups", "passengerGroups");
@@ -151,11 +149,26 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             return context;
         }
         authorizeTripContext(trip, context);
+        Map<String, Object> driverContext = aiContextService.loadLatestDriverContext(
+                trip.getId(),
+                trip.getRoute() == null ? routeId : trip.getRoute().getId()
+        );
+        mergeNamedContext(context, "driver.", driverContext);
 
         List<PassengerRecord> records = passengerRecordRepository.findByTripIdOrderByRecordedAtAsc(tripId);
         int totalPassengers = records.stream()
                 .mapToInt(record -> record.getPassengerCount() == null ? 0 : record.getPassengerCount())
                 .sum();
+        Integer liveDriverPassengerTotal = integerValue(driverContext, "passengerTotalOnBoard");
+        if (liveDriverPassengerTotal == null) {
+            liveDriverPassengerTotal = integerValue(driverContext, "passengerTotal");
+        }
+        if (liveDriverPassengerTotal != null) {
+            // The driver snapshot includes local Room records that may still
+            // be waiting for a slow POST. It is the freshest live counter;
+            // DB records remain the fallback for older trips/sessions.
+            totalPassengers = Math.max(0, liveDriverPassengerTotal);
+        }
 
         String passengerSummary = records.stream()
                 .map(record -> {
@@ -168,6 +181,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                     return stopPart + ", count=" + record.getPassengerCount() + notePart;
                 })
                 .collect(Collectors.joining("; "));
+        if (passengerSummary.isBlank() && driverContext.get("passengerGroups") != null) {
+            passengerSummary = String.valueOf(driverContext.get("passengerGroups"));
+        }
 
         List<Stop> routeStops = trip.getRoute() == null
                 ? List.of()
@@ -253,25 +269,46 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("totalStopsOnRoute", routeStops.size());
         context.put("stopsOnRoute", stopsOnRoute.isBlank() ? "(none)" : stopsOnRoute);
         context.put("totalPassengers", totalPassengers);
-        context.put("passengerGroupCount", records.size());
+        Integer liveDriverGroupCount = integerValue(driverContext, "passengerGroupCount");
+        context.put("passengerGroupCount", liveDriverGroupCount == null
+                ? records.size() : Math.max(0, liveDriverGroupCount));
         context.put("passengersAlightingAtCurrentStop", passengersAlightingAtCurrent);
         context.put("passengersAlightingAtNextStop", passengersAlightingAtNext);
         context.put("currentLatitude", trip.getCurrentLatitude());
         context.put("currentLongitude", trip.getCurrentLongitude());
         context.put("nearestStopDistanceMeters", nearestDistanceMeters);
         context.put("passengerGroups", passengerSummary.isBlank() ? "(none)" : passengerSummary);
-        // The driver/passenger app can have a newer local GPS snapshot than
-        // the last backend trip-location write. Keep backend authorization and
-        // route/stop lookup, but prefer these latest client facts for answers.
-        preferClientValue(context, "currentStopId", "currentStopId");
-        preferClientValue(context, "currentStopName", "currentStopName");
-        preferClientValue(context, "currentStopOrder", "currentStopOrder");
-        preferClientValue(context, "nextStopId", "nextStopId");
-        preferClientValue(context, "nextStopName", "nextStopName");
-        preferClientValue(context, "nextStopOrder", "nextStopOrder");
-        preferClientValue(context, "currentLatitude", "currentLatitude");
-        preferClientValue(context, "currentLongitude", "currentLongitude");
+        // The driver app may have a newer local GPS snapshot than the last
+        // backend trip-location write. Use it for vehicle facts, while keeping
+        // passenger GPS under client.* and never confusing the two.
+        preferNamedValue(context, "currentStopId", driverContext, "currentStopId");
+        preferNamedValue(context, "currentStopName", driverContext, "currentStopName");
+        preferNamedValue(context, "currentStopOrder", driverContext, "currentStopOrder");
+        preferNamedValue(context, "nextStopId", driverContext, "nextStopId");
+        preferNamedValue(context, "nextStopName", driverContext, "nextStopName");
+        preferNamedValue(context, "nextStopOrder", driverContext, "nextStopOrder");
+        preferNamedValue(context, "currentLatitude", driverContext, "currentLatitude");
+        preferNamedValue(context, "currentLongitude", driverContext, "currentLongitude");
+        putVehicleFact(context, driverContext, "vehicleLatitude", "currentLatitude");
+        putVehicleFact(context, driverContext, "vehicleLongitude", "currentLongitude");
+        putVehicleFact(context, driverContext, "vehicleCurrentStopId", "currentStopId");
+        putVehicleFact(context, driverContext, "vehicleCurrentStopName", "currentStopName");
+        putVehicleFact(context, driverContext, "vehicleCurrentStopOrder", "currentStopOrder");
+        putVehicleFact(context, driverContext, "vehicleNextStopId", "nextStopId");
+        putVehicleFact(context, driverContext, "vehicleNextStopName", "nextStopName");
+        putVehicleFact(context, driverContext, "vehicleNextStopOrder", "nextStopOrder");
         return context;
+    }
+
+    private Integer integerValue(Map<String, Object> context, String key) {
+        if (context == null || context.get(key) == null) return null;
+        Object raw = context.get(key);
+        if (raw instanceof Number number) return number.intValue();
+        try {
+            return Integer.valueOf(String.valueOf(raw));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private void addRouteContext(Map<String, Object> context, Route route) {
@@ -299,13 +336,27 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         }
     }
 
-    private void preferClientValue(Map<String, Object> context, String target, String... candidates) {
-        for (String candidate : candidates) {
-            Object value = context.get("client." + candidate);
-            if (value != null) {
-                context.put(target, value);
-                return;
+    private void mergeNamedContext(Map<String, Object> target, String prefix,
+                                   Map<String, Object> source) {
+        if (source == null || source.isEmpty()) return;
+        source.forEach((key, value) -> {
+            if (key != null && !key.isBlank() && value != null) {
+                target.put(prefix + key, value);
             }
+        });
+    }
+
+    private void preferNamedValue(Map<String, Object> context, String target,
+                                  Map<String, Object> source, String key) {
+        if (source == null) return;
+        Object value = source.get(key);
+        if (value != null) context.put(target, value);
+    }
+
+    private void putVehicleFact(Map<String, Object> context, Map<String, Object> driverContext,
+                                String target, String source) {
+        if (driverContext != null && driverContext.get(source) != null) {
+            context.put(target, driverContext.get(source));
         }
     }
 

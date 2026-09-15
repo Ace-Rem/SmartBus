@@ -27,7 +27,8 @@ public class AiPromptBuilder {
                 - "Tom tat chuyen." / "Phan tich chuyen." -> tong hop tu CONTEXT
                 - "Danh sach ben?" -> dung stopsOnRoute
                 - "Toi dang chon ben nao?" -> dung client.selectedBoardingStopName/client.selectedDestinationStopName
-                - "Vi tri cua toi?" -> dung client.currentLatitude/client.currentLongitude/client.nearbyStopName
+                - "Xe dang o dau?" -> dung vehicleLatitude/vehicleLongitude/vehicleCurrentStopName
+                - "Vi tri cua toi?" -> dung client.passengerLatitude/client.passengerLongitude/client.nearbyStopName
 
                 CONTEXT LIEN QUAN (da loc theo y dinh cau hoi):
                 %s
@@ -108,9 +109,20 @@ public class AiPromptBuilder {
             return "Bạn đang ở tuyến " + value(context, "routeCode", "chưa xác định")
                     + " - " + value(context, "routeName", "chưa xác định") + ".";
         }
+        if (containsAny(q, "xe dang o dau", "xe đang ở đâu", "xe o dau", "xe ở đâu",
+                "vi tri xe", "vị trí xe", "vi tri cua xe", "vị trí của xe",
+                "toa do xe", "tọa độ xe")) {
+            String latitude = value(context, "vehicleLatitude", value(context, "currentLatitude", "—"));
+            String longitude = value(context, "vehicleLongitude", value(context, "currentLongitude", "—"));
+            String stop = value(context, "vehicleCurrentStopName", value(context, "currentStopName", "chưa xác định"));
+            if ("—".equals(latitude) || "—".equals(longitude)) {
+                return "Chưa nhận được vị trí mới nhất của xe. Bến hiện tại gần nhất là " + stop + ".";
+            }
+            return "Xe đang ở gần " + stop + ", tọa độ khoảng " + latitude + ", " + longitude + ".";
+        }
         if (containsAny(q, "gps", "vi tri", "vị trí", "toa do", "tọa độ", "location")) {
-            return "Vị trí hiện tại trên app: lat=" + value(context, "client.currentLatitude", value(context, "currentLatitude", "—"))
-                    + ", lng=" + value(context, "client.currentLongitude", value(context, "currentLongitude", "—"))
+            return "Vị trí của bạn trên app: lat=" + value(context, "client.passengerLatitude", value(context, "client.currentLatitude", "—"))
+                    + ", lng=" + value(context, "client.passengerLongitude", value(context, "client.currentLongitude", "—"))
                     + ". Bến gần/gợi ý trên app: "
                     + value(context, "client.nearbyStopName", value(context, "currentStopName", "chưa xác định"))
                     + "; khoảng cách: "
@@ -163,8 +175,10 @@ public class AiPromptBuilder {
         }
         if (asksStops) include(result, context, "stopsOnRoute", "totalStopsOnRoute");
         if (asksPosition) include(result, context, "currentLatitude", "currentLongitude",
+                "vehicleLatitude", "vehicleLongitude", "vehicleCurrentStopName", "vehicleNextStopName",
                 "nearestStopDistanceMeters", "client.currentLatitude", "client.currentLongitude",
-                "client.nearbyStopName", "client.nearbyStopDistanceMeters");
+                "client.passengerLatitude", "client.passengerLongitude", "client.nearbyStopName",
+                "client.nearbyStopDistanceMeters");
         if (asksSelected) include(result, context, "client.selectedBoardingStopName",
                 "client.selectedDestinationStopName", "client.selectedBoardingStopId",
                 "client.selectedDestinationStopId", "client.boardingStopName", "client.destinationStopName");

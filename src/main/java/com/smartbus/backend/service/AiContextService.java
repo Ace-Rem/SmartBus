@@ -9,4 +9,6 @@ public interface AiContextService {
     AiContextSyncResponse sync(AiContextSyncRequest request);
 
     Map<String, Object> loadForCurrentAccount(Long tripId, Long routeId);
+
+    Map<String, Object> loadLatestDriverContext(Long tripId, Long routeId);
 }

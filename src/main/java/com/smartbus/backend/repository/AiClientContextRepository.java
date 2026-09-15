@@ -11,4 +11,14 @@ public interface AiClientContextRepository extends JpaRepository<AiClientContext
             Long ownerId,
             String clientKey
     );
+
+    Optional<AiClientContext> findTopByOwnerTypeAndTripIdOrderByUpdatedAtDesc(
+            String ownerType,
+            Long tripId
+    );
+
+    Optional<AiClientContext> findTopByOwnerTypeAndRouteIdOrderByUpdatedAtDesc(
+            String ownerType,
+            Long routeId
+    );
 }

@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -88,6 +89,21 @@ public class AiContextServiceImpl implements AiContextService {
         return repository.findByOwnerTypeAndOwnerIdAndClientKey(
                         owner.type(), owner.id(), "route:" + routeId)
                 .map(AiClientContext::getContextJson)
+                .map(this::parse)
+                .orElseGet(Collections::emptyMap);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> loadLatestDriverContext(Long tripId, Long routeId) {
+        if (tripId == null && routeId == null) return Collections.emptyMap();
+        Optional<AiClientContext> row = tripId == null
+                ? Optional.empty()
+                : repository.findTopByOwnerTypeAndTripIdOrderByUpdatedAtDesc("DRIVER", tripId);
+        if (tripId == null && row.isEmpty() && routeId != null) {
+            row = repository.findTopByOwnerTypeAndRouteIdOrderByUpdatedAtDesc("DRIVER", routeId);
+        }
+        return row.map(AiClientContext::getContextJson)
                 .map(this::parse)
                 .orElseGet(Collections::emptyMap);
     }
