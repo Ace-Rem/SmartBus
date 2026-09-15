@@ -55,7 +55,8 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
                     && signal.routeId.equals(request.getRouteId())
                     && signal.destinationStopId.equals(request.getDestinationStopId())
                     && sameOptional(signal.tripId, request.getTripId())
-                    && sameOptional(signal.boardingStopId, request.getBoardingStopId())) {
+                    && sameOptional(signal.boardingStopId, request.getBoardingStopId())
+                    && sameOptional(signal.passengerIdentifier, request.getPassengerIdentifier())) {
                 return signal.response();
             }
         }
@@ -122,9 +123,19 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
         if (tripId == null) {
             throw new BadRequestException("tripId is required when accepting a signal");
         }
-        final Long resolvedTripId = tripId;
-        Trip trip = tripRepository.findByIdWithDetails(resolvedTripId)
-                .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + resolvedTripId));
+        Trip trip = tripRepository.findByIdWithDetails(tripId).orElse(null);
+        // Driver starts the trip locally first. Until its deferred start sync
+        // finishes, the mobile ID is not a backend primary key; resolve the
+        // actual in-progress trip by the route owned by this driver.
+        if (trip == null && pending.routeId != null) {
+            trip = tripRepository
+                    .findFirstByRouteIdAndStatusOrderByStartedAtDesc(
+                            pending.routeId, TripStatus.IN_PROGRESS)
+                    .orElse(null);
+        }
+        if (trip == null) {
+            throw new ResourceNotFoundException("Trip not found: " + tripId);
+        }
         if (trip.getDriver() == null || !driverId.equals(trip.getDriver().getId())) {
             throw new ForbiddenException("Trip does not belong to current driver");
         }
@@ -144,7 +155,7 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
                 acceptanceSequence.incrementAndGet(),
                 pending.id,
                 pending.passengerId,
-                tripId,
+                trip.getId(),
                 pending.routeId,
                 pending.boardingStopId,
                 pending.destinationStopId,
