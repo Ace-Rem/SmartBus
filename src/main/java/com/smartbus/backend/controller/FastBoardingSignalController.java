@@ -4,6 +4,7 @@ import com.smartbus.backend.dto.ApiResponse;
 import com.smartbus.backend.dto.FastBoardingSignalRequest;
 import com.smartbus.backend.dto.FastBoardingSignalAcceptRequest;
 import com.smartbus.backend.dto.FastBoardingAcceptanceResponse;
+import com.smartbus.backend.dto.FastBoardingSignalCancelRequest;
 import com.smartbus.backend.dto.FastBoardingSignalResponse;
 import com.smartbus.backend.service.FastBoardingSignalService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -68,11 +69,28 @@ public class FastBoardingSignalController {
         return ResponseEntity.ok(ApiResponse.success(service.accept(null, request)));
     }
 
+    @PostMapping("/cancel")
+    @Operation(summary = "Passenger cancels a fast boarding signal")
+    public ResponseEntity<ApiResponse<FastBoardingSignalResponse>> cancel(
+            @RequestBody FastBoardingSignalCancelRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(service.cancel(request)));
+    }
+
     @GetMapping("/accepted")
     @Operation(summary = "Passenger polls driver acceptance")
     public ResponseEntity<ApiResponse<List<FastBoardingAcceptanceResponse>>> pollAccepted(
             @RequestParam(required = false, defaultValue = "0") Long afterId
     ) {
         return ResponseEntity.ok(ApiResponse.success(service.pollAccepted(afterId)));
+    }
+
+    @GetMapping("/cancelled")
+    @Operation(summary = "Driver polls cancelled fast boarding signals")
+    public ResponseEntity<ApiResponse<List<FastBoardingSignalResponse>>> pollCancelled(
+            @RequestParam Long routeId,
+            @RequestParam(required = false, defaultValue = "0") Long afterId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(service.pollCancelled(routeId, afterId)));
     }
 }

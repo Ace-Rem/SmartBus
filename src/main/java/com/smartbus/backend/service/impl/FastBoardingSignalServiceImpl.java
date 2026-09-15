@@ -3,6 +3,7 @@ package com.smartbus.backend.service.impl;
 import com.smartbus.backend.dto.FastBoardingSignalRequest;
 import com.smartbus.backend.dto.FastBoardingSignalAcceptRequest;
 import com.smartbus.backend.dto.FastBoardingAcceptanceResponse;
+import com.smartbus.backend.dto.FastBoardingSignalCancelRequest;
 import com.smartbus.backend.dto.FastBoardingSignalResponse;
 import com.smartbus.backend.exception.BadRequestException;
 import com.smartbus.backend.exception.ForbiddenException;
@@ -29,8 +30,10 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
 
     private final AtomicLong sequence = new AtomicLong();
     private final AtomicLong acceptanceSequence = new AtomicLong();
+    private final AtomicLong cancellationSequence = new AtomicLong();
     private final ConcurrentLinkedQueue<PendingSignal> pendingSignals = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<AcceptedSignal> acceptedSignals = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<CancelledSignal> cancelledSignals = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<Long, AcceptedSignal> acceptedBySignal = new ConcurrentHashMap<>();
     private final TripRepository tripRepository;
 
@@ -50,7 +53,9 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
         for (PendingSignal signal : pendingSignals) {
             if (signal.passengerId == passengerId
                     && signal.routeId.equals(request.getRouteId())
-                    && signal.destinationStopId.equals(request.getDestinationStopId())) {
+                    && signal.destinationStopId.equals(request.getDestinationStopId())
+                    && sameOptional(signal.tripId, request.getTripId())
+                    && sameOptional(signal.boardingStopId, request.getBoardingStopId())) {
                 return signal.response();
             }
         }
@@ -151,6 +156,47 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
     }
 
     @Override
+    public FastBoardingSignalResponse cancel(FastBoardingSignalCancelRequest request) {
+        Long passengerId = SecurityUtils.requireCurrentPassengerId();
+        if (request == null) {
+            throw new BadRequestException("Cancellation data is required");
+        }
+        cleanup(Instant.now().toEpochMilli());
+        PendingSignal pending = null;
+        for (PendingSignal candidate : pendingSignals) {
+            boolean matchesSignal = request.getSignalId() != null
+                    && candidate.id == request.getSignalId();
+            boolean matchesIdentity = request.getSignalId() == null
+                    && request.getRouteId() != null
+                    && request.getPassengerIdentifier() != null
+                    && candidate.routeId.equals(request.getRouteId())
+                    && request.getPassengerIdentifier().equals(candidate.passengerIdentifier)
+                    && (request.getDestinationStopId() == null
+                    || request.getDestinationStopId().equals(candidate.destinationStopId));
+            if ((matchesSignal || matchesIdentity) && candidate.passengerId == passengerId) {
+                pending = candidate;
+                break;
+            }
+        }
+        if (pending == null) {
+            throw new ResourceNotFoundException("Fast boarding signal not found");
+        }
+        pendingSignals.remove(pending);
+        CancelledSignal cancelled = new CancelledSignal(
+                cancellationSequence.incrementAndGet(),
+                pending.id,
+                pending.passengerId,
+                pending.routeId,
+                pending.tripId,
+                pending.destinationStopId,
+                pending.passengerIdentifier,
+                Instant.now().toEpochMilli()
+        );
+        cancelledSignals.add(cancelled);
+        return cancelled.response();
+    }
+
+    @Override
     public List<FastBoardingAcceptanceResponse> pollAccepted(Long afterId) {
         Long passengerId = SecurityUtils.requireCurrentPassengerId();
         long cursor = afterId == null || afterId < 0 ? 0L : afterId;
@@ -164,6 +210,23 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
         return result;
     }
 
+    @Override
+    public List<FastBoardingSignalResponse> pollCancelled(Long routeId, Long afterId) {
+        SecurityUtils.requireCurrentDriverId();
+        if (routeId == null || routeId <= 0) {
+            throw new BadRequestException("routeId is required");
+        }
+        long cursor = afterId == null || afterId < 0 ? 0L : afterId;
+        cleanup(Instant.now().toEpochMilli());
+        List<FastBoardingSignalResponse> result = new ArrayList<>();
+        for (CancelledSignal cancelled : cancelledSignals) {
+            if (cancelled.id > cursor && routeId.equals(cancelled.routeId)) {
+                result.add(cancelled.response());
+            }
+        }
+        return result;
+    }
+
     private void cleanup(long now) {
         pendingSignals.removeIf(signal -> now - signal.createdAt > SIGNAL_TTL_MILLIS);
         acceptedSignals.removeIf(signal -> {
@@ -171,6 +234,11 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
             if (expired) acceptedBySignal.remove(signal.signalId, signal);
             return expired;
         });
+        cancelledSignals.removeIf(signal -> now - signal.cancelledAt > ACCEPTANCE_TTL_MILLIS);
+    }
+
+    private boolean sameOptional(Object left, Object right) {
+        return left == null || right == null || left.equals(right);
     }
 
     private static final class PendingSignal {
@@ -242,6 +310,41 @@ public class FastBoardingSignalServiceImpl implements FastBoardingSignalService 
                     id, signalId, passengerId, tripId, routeId, boardingStopId,
                     destinationStopId, "BOARDED", LocalDateTime.ofInstant(
                             Instant.ofEpochMilli(acceptedAt), java.time.ZoneId.systemDefault()));
+        }
+    }
+
+    private static final class CancelledSignal {
+
+        private final long id;
+        private final long signalId;
+        private final long passengerId;
+        private final Long routeId;
+        private final Long tripId;
+        private final Long destinationStopId;
+        private final String passengerIdentifier;
+        private final long cancelledAt;
+
+        private CancelledSignal(long id, long signalId, long passengerId, Long routeId, Long tripId,
+                                Long destinationStopId, String passengerIdentifier, long cancelledAt) {
+            this.id = id;
+            this.signalId = signalId;
+            this.passengerId = passengerId;
+            this.routeId = routeId;
+            this.tripId = tripId;
+            this.destinationStopId = destinationStopId;
+            this.passengerIdentifier = passengerIdentifier;
+            this.cancelledAt = cancelledAt;
+        }
+
+        private FastBoardingSignalResponse response() {
+            FastBoardingSignalResponse response = new FastBoardingSignalResponse(
+                    id, routeId, destinationStopId);
+            response.setSignalId(signalId);
+            response.setTripId(tripId);
+            response.setPassengerId(passengerId);
+            response.setPassengerIdentifier(passengerIdentifier);
+            response.setStatus("CANCELLED");
+            return response;
         }
     }
 }

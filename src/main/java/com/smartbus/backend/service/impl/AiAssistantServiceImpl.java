@@ -244,8 +244,10 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("startedAt", trip.getStartedAt());
         context.put("endedAt", trip.getEndedAt());
         context.put("currentStopName", currentStop == null ? null : currentStop.getName());
+        context.put("currentStopId", currentStop == null ? null : currentStop.getId());
         context.put("currentStopOrder", currentStop == null ? null : currentStop.getStopOrder());
         context.put("nextStopName", nextStop == null ? null : nextStop.getName());
+        context.put("nextStopId", nextStop == null ? null : nextStop.getId());
         context.put("nextStopOrder", nextStop == null ? null : nextStop.getStopOrder());
         context.put("remainingStopsCount", remainingStops);
         context.put("totalStopsOnRoute", routeStops.size());
@@ -258,6 +260,17 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("currentLongitude", trip.getCurrentLongitude());
         context.put("nearestStopDistanceMeters", nearestDistanceMeters);
         context.put("passengerGroups", passengerSummary.isBlank() ? "(none)" : passengerSummary);
+        // The driver/passenger app can have a newer local GPS snapshot than
+        // the last backend trip-location write. Keep backend authorization and
+        // route/stop lookup, but prefer these latest client facts for answers.
+        preferClientValue(context, "currentStopId", "currentStopId");
+        preferClientValue(context, "currentStopName", "currentStopName");
+        preferClientValue(context, "currentStopOrder", "currentStopOrder");
+        preferClientValue(context, "nextStopId", "nextStopId");
+        preferClientValue(context, "nextStopName", "nextStopName");
+        preferClientValue(context, "nextStopOrder", "nextStopOrder");
+        preferClientValue(context, "currentLatitude", "currentLatitude");
+        preferClientValue(context, "currentLongitude", "currentLongitude");
         return context;
     }
 
@@ -277,6 +290,16 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     private void promoteClientValue(Map<String, Object> context, String target, String... candidates) {
         if (context.get(target) != null) return;
+        for (String candidate : candidates) {
+            Object value = context.get("client." + candidate);
+            if (value != null) {
+                context.put(target, value);
+                return;
+            }
+        }
+    }
+
+    private void preferClientValue(Map<String, Object> context, String target, String... candidates) {
         for (String candidate : candidates) {
             Object value = context.get("client." + candidate);
             if (value != null) {

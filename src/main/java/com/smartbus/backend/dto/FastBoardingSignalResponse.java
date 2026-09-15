@@ -3,12 +3,14 @@ package com.smartbus.backend.dto;
 public class FastBoardingSignalResponse {
 
     private Long id;
+    private Long signalId;
     private Long routeId;
     private Long destinationStopId;
     private Long tripId;
     private Long boardingStopId;
     private Long passengerId;
     private String passengerIdentifier;
+    private String status;
 
     public FastBoardingSignalResponse() {
     }
@@ -26,6 +28,9 @@ public class FastBoardingSignalResponse {
     public void setId(Long id) {
         this.id = id;
     }
+
+    public Long getSignalId() { return signalId; }
+    public void setSignalId(Long signalId) { this.signalId = signalId; }
 
     public Long getRouteId() {
         return routeId;
@@ -51,4 +56,6 @@ public class FastBoardingSignalResponse {
     public void setPassengerId(Long passengerId) { this.passengerId = passengerId; }
     public String getPassengerIdentifier() { return passengerIdentifier; }
     public void setPassengerIdentifier(String passengerIdentifier) { this.passengerIdentifier = passengerIdentifier; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
