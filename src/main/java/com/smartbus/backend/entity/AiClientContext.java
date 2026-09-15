@@ -35,6 +35,9 @@ public class AiClientContext {
     @Column(name = "trip_id")
     private Long tripId;
 
+    @Column(name = "route_id")
+    private Long routeId;
+
     @Column(name = "context_json", nullable = false, columnDefinition = "TEXT")
     private String contextJson;
 
@@ -59,6 +62,8 @@ public class AiClientContext {
     public void setClientKey(String clientKey) { this.clientKey = clientKey; }
     public Long getTripId() { return tripId; }
     public void setTripId(Long tripId) { this.tripId = tripId; }
+    public Long getRouteId() { return routeId; }
+    public void setRouteId(Long routeId) { this.routeId = routeId; }
     public String getContextJson() { return contextJson; }
     public void setContextJson(String contextJson) { this.contextJson = contextJson; }
     public Long getClientVersion() { return clientVersion; }

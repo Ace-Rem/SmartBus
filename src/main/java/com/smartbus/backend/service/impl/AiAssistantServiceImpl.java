@@ -9,12 +9,14 @@ import com.smartbus.backend.dto.AiAssistantRequest;
 import com.smartbus.backend.dto.AiAssistantResponse;
 import com.smartbus.backend.dto.AiSummaryRequest;
 import com.smartbus.backend.entity.PassengerRecord;
+import com.smartbus.backend.entity.Route;
 import com.smartbus.backend.entity.Stop;
 import com.smartbus.backend.entity.Trip;
 import com.smartbus.backend.exception.ForbiddenException;
 import com.smartbus.backend.exception.ResourceNotFoundException;
 import com.smartbus.backend.repository.PassengerRecordRepository;
 import com.smartbus.backend.repository.BoardingRequestRepository;
+import com.smartbus.backend.repository.RouteRepository;
 import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
 import com.smartbus.backend.security.SecurityUtils;
@@ -39,6 +41,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final AiPromptBuilder aiPromptBuilder;
     private final AiClient aiClient;
     private final AiContextService aiContextService;
+    private final RouteRepository routeRepository;
 
     public AiAssistantServiceImpl(
             TripRepository tripRepository,
@@ -47,7 +50,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             StopRepository stopRepository,
             AiPromptBuilder aiPromptBuilder,
             AiClient aiClient,
-            AiContextService aiContextService
+            AiContextService aiContextService,
+            RouteRepository routeRepository
     ) {
         this.tripRepository = tripRepository;
         this.boardingRequestRepository = boardingRequestRepository;
@@ -56,12 +60,14 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.aiPromptBuilder = aiPromptBuilder;
         this.aiClient = aiClient;
         this.aiContextService = aiContextService;
+        this.routeRepository = routeRepository;
     }
 
     @Override
     @Transactional(readOnly = true)
     public AiAssistantResponse chat(AiAssistantRequest request) {
-        Map<String, Object> context = buildTripContext(request.getTripId(), request.getClientContext());
+        Map<String, Object> context = buildTripContext(
+                request.getTripId(), request.getRouteId(), request.getClientContext());
         String prompt = aiPromptBuilder.buildChatPrompt(context, request.getQuestion());
         return invoke(prompt, context, request.getQuestion());
     }
@@ -69,7 +75,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Override
     @Transactional(readOnly = true)
     public AiAssistantResponse summarize(AiSummaryRequest request) {
-        Map<String, Object> context = buildTripContext(request.getTripId(), request.getClientContext());
+        Map<String, Object> context = buildTripContext(
+                request.getTripId(), request.getRouteId(), request.getClientContext());
         String prompt = aiPromptBuilder.buildSummaryPrompt(context);
         return invoke(prompt, context, "tom tat chuyen");
     }
@@ -106,12 +113,20 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     /**
      * Backend aggregates trip facts from DB. AI only narrates from this context.
      */
-    private Map<String, Object> buildTripContext(Long tripId, Map<String, Object> clientContext) {
+    private Map<String, Object> buildTripContext(
+            Long tripId,
+            Long routeId,
+            Map<String, Object> clientContext
+    ) {
         Map<String, Object> context = new LinkedHashMap<>();
-        mergeClientContext(context, aiContextService.loadForCurrentAccount(tripId));
+        mergeClientContext(context, aiContextService.loadForCurrentAccount(tripId, routeId));
         mergeClientContext(context, clientContext);
-        Trip trip = tripRepository.findByIdWithDetails(tripId).orElse(null);
+        Trip trip = tripId == null ? null : tripRepository.findByIdWithDetails(tripId).orElse(null);
         if (trip == null) {
+            if (routeId != null) {
+                Route route = routeRepository.findById(routeId).orElse(null);
+                if (route != null) addRouteContext(context, route);
+            }
             if (context.isEmpty()) {
                 throw new ResourceNotFoundException("Trip not found: " + tripId);
             }
@@ -244,6 +259,20 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         context.put("nearestStopDistanceMeters", nearestDistanceMeters);
         context.put("passengerGroups", passengerSummary.isBlank() ? "(none)" : passengerSummary);
         return context;
+    }
+
+    private void addRouteContext(Map<String, Object> context, Route route) {
+        List<Stop> routeStops = stopRepository.findByRouteIdAndActiveTrueOrderByStopOrderAsc(route.getId());
+        context.putIfAbsent("routeId", route.getId());
+        context.putIfAbsent("routeCode", route.getCode());
+        context.putIfAbsent("routeName", route.getName());
+        context.putIfAbsent("routeDescription", route.getDescription());
+        context.putIfAbsent("status", "ROUTE_SELECTED");
+        context.putIfAbsent("totalStopsOnRoute", routeStops.size());
+        context.putIfAbsent("stopsOnRoute", routeStops.stream()
+                .map(stop -> (stop.getStopOrder() == null ? "?" : stop.getStopOrder())
+                        + ". " + stop.getName())
+                .collect(Collectors.joining(" | ")));
     }
 
     private void promoteClientValue(Map<String, Object> context, String target, String... candidates) {

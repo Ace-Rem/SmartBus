@@ -1,13 +1,12 @@
 package com.smartbus.backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
 public class AiAssistantRequest {
 
-    @NotNull
     private Long tripId;
+    private Long routeId;
 
     @NotBlank
     private String question;
@@ -21,6 +20,9 @@ public class AiAssistantRequest {
     public void setTripId(Long tripId) {
         this.tripId = tripId;
     }
+
+    public Long getRouteId() { return routeId; }
+    public void setRouteId(Long routeId) { this.routeId = routeId; }
 
     public String getQuestion() {
         return question;

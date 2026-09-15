@@ -1,12 +1,11 @@
 package com.smartbus.backend.dto;
 
-import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
 public class AiSummaryRequest {
 
-    @NotNull
     private Long tripId;
+    private Long routeId;
 
     private Map<String, Object> clientContext;
 
@@ -17,6 +16,9 @@ public class AiSummaryRequest {
     public void setTripId(Long tripId) {
         this.tripId = tripId;
     }
+
+    public Long getRouteId() { return routeId; }
+    public void setRouteId(Long routeId) { this.routeId = routeId; }
 
     public Map<String, Object> getClientContext() {
         return clientContext;

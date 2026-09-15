@@ -1,13 +1,12 @@
 package com.smartbus.backend.dto;
 
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
 public class AiContextSyncRequest {
 
-    @NotNull
     private Long tripId;
+    private Long routeId;
 
     @NotEmpty
     private Map<String, Object> context;
@@ -17,6 +16,8 @@ public class AiContextSyncRequest {
 
     public Long getTripId() { return tripId; }
     public void setTripId(Long tripId) { this.tripId = tripId; }
+    public Long getRouteId() { return routeId; }
+    public void setRouteId(Long routeId) { this.routeId = routeId; }
     public Map<String, Object> getContext() { return context; }
     public void setContext(Map<String, Object> context) { this.context = context; }
     public Long getClientVersion() { return clientVersion; }

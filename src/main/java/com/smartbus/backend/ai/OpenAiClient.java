@@ -92,14 +92,14 @@ public class OpenAiClient implements AiClient {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", model);
         body.put("temperature", 0.2);
-        body.put("max_tokens", 900);
+        body.put("max_tokens", 420);
         ArrayNode messages = body.putArray("messages");
         ObjectNode system = messages.addObject();
         system.put("role", "system");
-        system.put("content", "Ban la tro ly SmartBus cho tai xe xe buyt. "
-                + "Tra loi bang tieng Viet, ngan gon, de hieu. "
-                + "Chi dung CONTEXT trong prompt. Khong bia so lieu. "
-                + "Khong bao gio tra loi cau xin loi chung chung neu CONTEXT da co du lieu.");
+        system.put("content", "Ban la tro ly SmartBus. Tra loi dung cau hoi bang tieng Viet, "
+                + "chi 1-4 cau ngan gon. Chi dung cac truong lien quan trong CONTEXT; "
+                + "khong doc lai context, khong tu y liet ke danh sach ben/nhom khach/GPS, "
+                + "khong bia so lieu va khong xin loi chung chung khi context co du lieu.");
         ObjectNode user = messages.addObject();
         user.put("role", "user");
         user.put("content", prompt);

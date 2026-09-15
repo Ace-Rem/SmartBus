@@ -8,5 +8,5 @@ public interface AiContextService {
 
     AiContextSyncResponse sync(AiContextSyncRequest request);
 
-    Map<String, Object> loadForCurrentAccount(Long tripId);
+    Map<String, Object> loadForCurrentAccount(Long tripId, Long routeId);
 }

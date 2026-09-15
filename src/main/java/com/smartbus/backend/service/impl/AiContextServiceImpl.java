@@ -34,6 +34,9 @@ public class AiContextServiceImpl implements AiContextService {
     @Transactional
     public AiContextSyncResponse sync(AiContextSyncRequest request) {
         Owner owner = currentOwner();
+        if (request.getTripId() == null && request.getRouteId() == null) {
+            throw new BadRequestException("tripId or routeId is required");
+        }
         String json;
         try {
             json = objectMapper.writeValueAsString(request.getContext());
@@ -44,7 +47,9 @@ public class AiContextServiceImpl implements AiContextService {
             throw new BadRequestException("AI context is too large");
         }
 
-        String clientKey = String.valueOf(request.getTripId());
+        String clientKey = request.getTripId() != null
+                ? String.valueOf(request.getTripId())
+                : "route:" + request.getRouteId();
         AiClientContext row = repository.findByOwnerTypeAndOwnerIdAndClientKey(
                         owner.type(), owner.id(), clientKey)
                 .orElseGet(AiClientContext::new);
@@ -59,6 +64,7 @@ public class AiContextServiceImpl implements AiContextService {
         row.setOwnerId(owner.id());
         row.setClientKey(clientKey);
         row.setTripId(request.getTripId());
+        row.setRouteId(request.getRouteId());
         row.setContextJson(json);
         row.setClientVersion(request.getClientVersion());
         AiClientContext saved = repository.save(row);
@@ -68,12 +74,19 @@ public class AiContextServiceImpl implements AiContextService {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> loadForCurrentAccount(Long tripId) {
-        if (tripId == null) return Collections.emptyMap();
+    public Map<String, Object> loadForCurrentAccount(Long tripId, Long routeId) {
+        if (tripId == null && routeId == null) return Collections.emptyMap();
         Owner owner = currentOwnerOrNull();
         if (owner == null) return Collections.emptyMap();
-        return repository.findByOwnerTypeAndOwnerIdAndClientKey(
+        Map<String, Object> stored = tripId == null ? Collections.emptyMap()
+                : repository.findByOwnerTypeAndOwnerIdAndClientKey(
                         owner.type(), owner.id(), String.valueOf(tripId))
+                .map(AiClientContext::getContextJson)
+                .map(this::parse)
+                .orElseGet(Collections::emptyMap);
+        if (!stored.isEmpty() || routeId == null) return stored;
+        return repository.findByOwnerTypeAndOwnerIdAndClientKey(
+                        owner.type(), owner.id(), "route:" + routeId)
                 .map(AiClientContext::getContextJson)
                 .map(this::parse)
                 .orElseGet(Collections::emptyMap);

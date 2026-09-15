@@ -13,6 +13,8 @@ public class AiPromptBuilder {
         return """
                 Ban la tro ly ho tro nguoi dung SmartBus (tai xe hoac hanh khach).
                 Chi dung CONTEXT ben duoi de tra loi bang tieng Viet tu nhien.
+                Chi tra loi truc tiep y chinh cua CAU HOI, toi da 2-4 cau ngan.
+                Khong lap lai toan bo CONTEXT, khong liet ke cac truong khong lien quan.
                 Khong tu tinh toan lai nghiep vu, khong bia so lieu, khong thay Business Logic.
                 Neu CONTEXT co du lieu, bat buoc tra loi cu the (ten ben, so khach, vi tri,...).
                 Cac khoa bat dau bang "client." la du lieu hien tai vua chon/dang hien thi tren app.
@@ -27,12 +29,12 @@ public class AiPromptBuilder {
                 - "Toi dang chon ben nao?" -> dung client.selectedBoardingStopName/client.selectedDestinationStopName
                 - "Vi tri cua toi?" -> dung client.currentLatitude/client.currentLongitude/client.nearbyStopName
 
-                CONTEXT (database SmartBus + du lieu hien tai tren app):
+                CONTEXT LIEN QUAN (da loc theo y dinh cau hoi):
                 %s
 
                 CAU HOI CUA NGUOI DUNG:
                 %s
-                """.formatted(formatContext(context), sanitizedQuestion);
+                """.formatted(formatContext(relevantContext(context, sanitizedQuestion)), sanitizedQuestion);
     }
 
     public String buildSummaryPrompt(Map<String, Object> context) {
@@ -86,18 +88,25 @@ public class AiPromptBuilder {
         }
         if (containsAny(q, "bao nhieu khach", "bao nhiêu khách", "tong khach", "tổng khách",
                 "hanh khach", "hành khách", "passenger")) {
-            return "Tổng hành khách trên chuyến: " + value(context, "totalPassengers", "0")
-                    + " (số nhóm: " + value(context, "passengerGroupCount", "0") + "). "
-                    + "Chi tiết nhóm: " + value(context, "passengerGroups", "(chưa có)") + ".";
+            String answer = "Tổng hành khách trên chuyến: " + value(context, "totalPassengers", "0")
+                    + " (số nhóm: " + value(context, "passengerGroupCount", "0") + ").";
+            if (containsAny(q, "chi tiet", "chi tiết", "nhom", "nhóm")) {
+                answer += " Chi tiết nhóm: " + value(context, "passengerGroups", "(chưa có)") + ".";
+            }
+            return answer;
         }
         if (containsAny(q, "bao nhieu ben", "bao nhiêu bến", "con bao nhieu ben", "remaining")) {
             return "Còn " + value(context, "remainingStopsCount", "0") + " bến trên tổng "
                     + value(context, "totalStopsOnRoute", "0") + " bến của tuyến "
                     + value(context, "routeCode", "") + ".";
         }
-        if (containsAny(q, "danh sach ben", "danh sách bến", "cac ben", "các bến", "tuyen", "tuyến")) {
+        if (containsAny(q, "danh sach ben", "danh sách bến", "cac ben", "các bến")) {
             return "Tuyến " + value(context, "routeCode", "") + " - " + value(context, "routeName", "")
                     + ". Danh sách bến: " + value(context, "stopsOnRoute", "(chưa có)") + ".";
+        }
+        if (containsAny(q, "tuyen", "tuyến")) {
+            return "Bạn đang ở tuyến " + value(context, "routeCode", "chưa xác định")
+                    + " - " + value(context, "routeName", "chưa xác định") + ".";
         }
         if (containsAny(q, "gps", "vi tri", "vị trí", "toa do", "tọa độ", "location")) {
             return "Vị trí hiện tại trên app: lat=" + value(context, "client.currentLatitude", value(context, "currentLatitude", "—"))
@@ -118,8 +127,64 @@ public class AiPromptBuilder {
                     + "ưu tiên an toàn hành khách. Trạng thái chuyến hiện tại — "
                     + buildSummaryFromContext(context);
         }
-        return buildSummaryFromContext(context)
-                + "\n\n(Bạn có thể hỏi: bến tiếp theo, tổng khách, số bến còn lại, hoặc GPS.)";
+        return "Mình chưa xác định được đúng thông tin bạn cần hỏi từ context hiện tại. "
+                + "Bạn có thể hỏi cụ thể về bến tiếp theo, tổng khách, số bến còn lại, GPS, "
+                + "tuyến hoặc bến đi/bến xuống.";
+    }
+
+    private Map<String, Object> relevantContext(Map<String, Object> context, String question) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        if (context == null || context.isEmpty()) return result;
+        String q = question.toLowerCase(Locale.ROOT);
+
+        include(result, context, "tripId", "routeId", "status", "selectionState",
+                "routeCode", "routeName", "currentTripId", "currentRouteId");
+        include(result, context, "client.selectedTripId", "client.selectedRouteId",
+                "client.selectionState", "client.checkInStatus");
+
+        boolean asksPassenger = containsAny(q, "khach", "khách", "hanh khach", "hành khách",
+                "check-in", "check in", "checkin", "passenger");
+        boolean asksStops = containsAny(q, "danh sach ben", "danh sách bến", "cac ben", "các bến",
+                "nhung ben", "những bến");
+        boolean asksPosition = containsAny(q, "gps", "vi tri", "vị trí", "toa do", "tọa độ",
+                "xe dang o", "xe đang ở", "location");
+        boolean asksSelected = containsAny(q, "ben di", "bến đi", "ben xuong", "bến xuống",
+                "dang chon", "đang chọn", "boarding", "destination");
+        boolean asksCurrent = containsAny(q, "ben hien tai", "bến hiện tại", "dang o ben", "đang ở bến",
+                "ben tiep theo", "bến tiếp theo", "next stop", "con bao nhieu ben", "còn bao nhiêu bến");
+
+        if (asksPassenger) {
+            include(result, context, "totalPassengers", "passengerTotal", "passengerTotalOnBoard",
+                    "passengerGroupCount", "checkInCount", "passengersAlightingAtCurrentStop",
+                    "passengersAlightingAtNextStop");
+            if (containsAny(q, "chi tiet", "chi tiết", "nhom", "nhóm")) {
+                include(result, context, "passengerGroups", "client.passengerGroups");
+            }
+        }
+        if (asksStops) include(result, context, "stopsOnRoute", "totalStopsOnRoute");
+        if (asksPosition) include(result, context, "currentLatitude", "currentLongitude",
+                "nearestStopDistanceMeters", "client.currentLatitude", "client.currentLongitude",
+                "client.nearbyStopName", "client.nearbyStopDistanceMeters");
+        if (asksSelected) include(result, context, "client.selectedBoardingStopName",
+                "client.selectedDestinationStopName", "client.selectedBoardingStopId",
+                "client.selectedDestinationStopId", "client.boardingStopName", "client.destinationStopName");
+        if (asksCurrent) include(result, context, "currentStopName", "currentStopOrder",
+                "nextStopName", "nextStopOrder", "remainingStopsCount",
+                "passengersAlightingAtCurrentStop", "passengersAlightingAtNextStop");
+        if (containsAny(q, "thoi gian", "thời gian", "bat dau", "bắt đầu", "ket thuc", "kết thúc",
+                "trang thai", "trạng thái")) {
+            include(result, context, "startedAt", "endedAt", "tripStartedAt", "tripEndedAt", "status");
+        }
+        if (result.size() <= 7) {
+            include(result, context, "currentStopName", "nextStopName", "totalPassengers");
+        }
+        return result;
+    }
+
+    private void include(Map<String, Object> target, Map<String, Object> source, String... keys) {
+        for (String key : keys) {
+            if (source.containsKey(key) && source.get(key) != null) target.put(key, source.get(key));
+        }
     }
 
     private String buildSummaryFromContext(Map<String, Object> context) {
