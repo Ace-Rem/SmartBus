@@ -5,6 +5,10 @@ public class FastBoardingSignalResponse {
     private Long id;
     private Long routeId;
     private Long destinationStopId;
+    private Long tripId;
+    private Long boardingStopId;
+    private Long passengerId;
+    private String passengerIdentifier;
 
     public FastBoardingSignalResponse() {
     }
@@ -38,4 +42,13 @@ public class FastBoardingSignalResponse {
     public void setDestinationStopId(Long destinationStopId) {
         this.destinationStopId = destinationStopId;
     }
+
+    public Long getTripId() { return tripId; }
+    public void setTripId(Long tripId) { this.tripId = tripId; }
+    public Long getBoardingStopId() { return boardingStopId; }
+    public void setBoardingStopId(Long boardingStopId) { this.boardingStopId = boardingStopId; }
+    public Long getPassengerId() { return passengerId; }
+    public void setPassengerId(Long passengerId) { this.passengerId = passengerId; }
+    public String getPassengerIdentifier() { return passengerIdentifier; }
+    public void setPassengerIdentifier(String passengerIdentifier) { this.passengerIdentifier = passengerIdentifier; }
 }

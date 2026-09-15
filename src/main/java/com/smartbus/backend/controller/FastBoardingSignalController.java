@@ -2,6 +2,8 @@ package com.smartbus.backend.controller;
 
 import com.smartbus.backend.dto.ApiResponse;
 import com.smartbus.backend.dto.FastBoardingSignalRequest;
+import com.smartbus.backend.dto.FastBoardingSignalAcceptRequest;
+import com.smartbus.backend.dto.FastBoardingAcceptanceResponse;
 import com.smartbus.backend.dto.FastBoardingSignalResponse;
 import com.smartbus.backend.service.FastBoardingSignalService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,5 +49,30 @@ public class FastBoardingSignalController {
             @RequestParam(required = false, defaultValue = "0") Long afterId
     ) {
         return ResponseEntity.ok(ApiResponse.success(service.poll(routeId, afterId)));
+    }
+
+    @PostMapping("/{signalId}/accept")
+    @Operation(summary = "Driver accepts a passenger fast boarding signal")
+    public ResponseEntity<ApiResponse<FastBoardingAcceptanceResponse>> accept(
+            @PathVariable Long signalId,
+            @RequestBody FastBoardingSignalAcceptRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(service.accept(signalId, request)));
+    }
+
+    @PostMapping("/accept")
+    @Operation(summary = "Driver accepts a passenger signal by identity")
+    public ResponseEntity<ApiResponse<FastBoardingAcceptanceResponse>> acceptByIdentity(
+            @RequestBody FastBoardingSignalAcceptRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(service.accept(null, request)));
+    }
+
+    @GetMapping("/accepted")
+    @Operation(summary = "Passenger polls driver acceptance")
+    public ResponseEntity<ApiResponse<List<FastBoardingAcceptanceResponse>>> pollAccepted(
+            @RequestParam(required = false, defaultValue = "0") Long afterId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(service.pollAccepted(afterId)));
     }
 }
