@@ -7,6 +7,7 @@ import com.smartbus.backend.repository.PassengerRepository;
 import com.smartbus.backend.repository.RouteRepository;
 import com.smartbus.backend.repository.StopRepository;
 import com.smartbus.backend.repository.TripRepository;
+import com.smartbus.backend.repository.AiClientContextRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -39,6 +40,9 @@ class SmartBusBackendApplicationTests {
 
     @MockBean
     private BoardingRequestRepository boardingRequestRepository;
+
+    @MockBean
+    private AiClientContextRepository aiClientContextRepository;
 
     @Test
     void contextLoads() {

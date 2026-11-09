@@ -23,6 +23,7 @@ dependencies {
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'io.ably:ably-java:1.8.2'
 
     runtimeOnly 'org.postgresql:postgresql'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'

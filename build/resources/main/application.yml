@@ -33,6 +33,10 @@ smartbus:
   gps:
     stop-proximity-meters: ${GPS_STOP_PROXIMITY_METERS:50}
 
+ably:
+  api-key: ${ABLY_API_KEY:}
+  channel: ${ABLY_CHANNEL:smartbus/check-ins}
+
 ai:
   provider: ${AI_PROVIDER:openrouter}
   api-key: ${AI_API_KEY:}

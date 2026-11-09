@@ -1,6 +1,7 @@
 package com.smartbus.backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
 import java.util.Map;
 
 public class AiAssistantRequest {
@@ -12,6 +13,7 @@ public class AiAssistantRequest {
     private String question;
 
     private Map<String, Object> clientContext;
+    private List<AiConversationMessage> conversationHistory;
 
     public Long getTripId() {
         return tripId;
@@ -39,4 +41,7 @@ public class AiAssistantRequest {
     public void setClientContext(Map<String, Object> clientContext) {
         this.clientContext = clientContext;
     }
+
+    public List<AiConversationMessage> getConversationHistory() { return conversationHistory; }
+    public void setConversationHistory(List<AiConversationMessage> conversationHistory) { this.conversationHistory = conversationHistory; }
 }

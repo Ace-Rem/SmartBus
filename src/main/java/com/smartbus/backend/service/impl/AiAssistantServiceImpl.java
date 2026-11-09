@@ -1,12 +1,13 @@
 package com.smartbus.backend.service.impl;
 
 import com.smartbus.backend.ai.AiClient;
-import com.smartbus.backend.ai.AiPromptBuilder;
 import com.smartbus.backend.ai.AiRequest;
 import com.smartbus.backend.ai.AiResponse;
 import com.smartbus.backend.ai.OpenAiClient;
+import com.smartbus.backend.ai.SmartBusAiTools;
 import com.smartbus.backend.dto.AiAssistantRequest;
 import com.smartbus.backend.dto.AiAssistantResponse;
+import com.smartbus.backend.dto.AiConversationMessage;
 import com.smartbus.backend.dto.AiSummaryRequest;
 import com.smartbus.backend.entity.PassengerRecord;
 import com.smartbus.backend.entity.Route;
@@ -23,10 +24,12 @@ import com.smartbus.backend.security.SecurityUtils;
 import com.smartbus.backend.service.AiAssistantService;
 import com.smartbus.backend.service.AiContextService;
 import com.smartbus.backend.util.GeoUtils;
-import com.smartbus.backend.util.TripStatus;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,29 +41,32 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final BoardingRequestRepository boardingRequestRepository;
     private final PassengerRecordRepository passengerRecordRepository;
     private final StopRepository stopRepository;
-    private final AiPromptBuilder aiPromptBuilder;
     private final AiClient aiClient;
     private final AiContextService aiContextService;
     private final RouteRepository routeRepository;
+    private final SmartBusAiTools aiTools;
+    private final ObjectMapper objectMapper;
 
     public AiAssistantServiceImpl(
             TripRepository tripRepository,
             BoardingRequestRepository boardingRequestRepository,
             PassengerRecordRepository passengerRecordRepository,
             StopRepository stopRepository,
-            AiPromptBuilder aiPromptBuilder,
             AiClient aiClient,
             AiContextService aiContextService,
-            RouteRepository routeRepository
+            RouteRepository routeRepository,
+            SmartBusAiTools aiTools,
+            ObjectMapper objectMapper
     ) {
         this.tripRepository = tripRepository;
         this.boardingRequestRepository = boardingRequestRepository;
         this.passengerRecordRepository = passengerRecordRepository;
         this.stopRepository = stopRepository;
-        this.aiPromptBuilder = aiPromptBuilder;
         this.aiClient = aiClient;
         this.aiContextService = aiContextService;
         this.routeRepository = routeRepository;
+        this.aiTools = aiTools;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -68,8 +74,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResponse chat(AiAssistantRequest request) {
         Map<String, Object> context = buildTripContext(
                 request.getTripId(), request.getRouteId(), request.getClientContext());
-        String prompt = aiPromptBuilder.buildChatPrompt(context, request.getQuestion());
-        return invoke(prompt, context, request.getQuestion());
+        return invoke(context, request.getQuestion(), request.getConversationHistory());
     }
 
     @Override
@@ -77,8 +82,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResponse summarize(AiSummaryRequest request) {
         Map<String, Object> context = buildTripContext(
                 request.getTripId(), request.getRouteId(), request.getClientContext());
-        String prompt = aiPromptBuilder.buildSummaryPrompt(context);
-        return invoke(prompt, context, "tom tat chuyen");
+        return invoke(context, "Tóm tắt hành trình", request.getConversationHistory());
     }
 
     private void mergeClientContext(Map<String, Object> context, Map<String, Object> clientContext) {
@@ -92,22 +96,94 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         });
     }
 
-    private AiAssistantResponse invoke(String prompt, Map<String, Object> context, String question) {
+    private AiAssistantResponse invoke(Map<String, Object> context, String question,
+                                       List<AiConversationMessage> history) {
         AiRequest aiRequest = new AiRequest();
-        aiRequest.setPrompt(prompt);
-        AiResponse aiResponse = aiClient.complete(aiRequest);
-        String answer = aiResponse == null ? null : aiResponse.getContent();
-        // Old Render builds returned a fixed apology string instead of DB answers.
-        // Treat that (and FALLBACK_MARKER) as failure → answer from trip context.
-        if (answer == null
-                || answer.isBlank()
-                || OpenAiClient.FALLBACK_MARKER.equals(answer)
-                || OpenAiClient.isUnavailableApology(answer)) {
-            answer = aiPromptBuilder.buildDataDrivenAnswer(context, question);
+        aiRequest.addMessage("system", "Bạn là trợ lý SmartBus. Hiểu câu hỏi tự nhiên bằng ngôn ngữ người dùng. "
+                + "Chỉ dùng dữ liệu từ công cụ hoặc CONTEXT được cấp; không bịa, không lộ token hay thông tin ngoài quyền. "
+                + "Với dữ liệu GPS, luôn nói rõ thời điểm và nguồn nếu có. Nếu thiếu dữ liệu, nói rõ thiếu gì.");
+        appendHistory(aiRequest, history);
+        aiRequest.addMessage("user", "CONTEXT hiện tại (chỉ là gợi ý cục bộ, có thể cũ): "
+                + compactContext(context) + "\n\nCâu hỏi: " + question);
+        aiRequest.setTools(aiTools.definitions());
+
+        String answer = null;
+        for (int round = 0; round < 6; round++) {
+            AiResponse aiResponse = aiClient.complete(aiRequest);
+            if (aiResponse == null) break;
+            if (aiResponse.hasToolCalls()) {
+                Map<String, Object> assistant = new LinkedHashMap<>();
+                assistant.put("role", "assistant");
+                assistant.put("content", aiResponse.getContent());
+                assistant.put("tool_calls", aiResponse.getToolCalls());
+                aiRequest.getMessages().add(assistant);
+                for (Map<String, Object> toolCall : aiResponse.getToolCalls()) {
+                    Map<String, Object> function = asMap(toolCall.get("function"));
+                    String name = String.valueOf(function.getOrDefault("name", ""));
+                    Object rawArguments = function.containsKey("arguments")
+                            ? function.get("arguments") : function.get("args");
+                    Map<String, Object> arguments = arguments(rawArguments);
+                    Map<String, Object> result = aiTools.execute(name, arguments, context);
+                    Map<String, Object> toolMessage = new LinkedHashMap<>();
+                    toolMessage.put("role", "tool");
+                    toolMessage.put("tool_call_id", toolCall.get("id"));
+                    toolMessage.put("name", name);
+                    toolMessage.put("content", json(result));
+                    aiRequest.getMessages().add(toolMessage);
+                }
+                continue;
+            }
+            answer = aiResponse.getContent();
+            break;
+        }
+        if (OpenAiClient.isUnavailableApology(answer)) {
+            answer = "Dịch vụ AI bên ngoài hiện chưa khả dụng. Dữ liệu SmartBus cục bộ vẫn được giữ nguyên; "
+                    + "hãy thử lại khi có kết nối và cấu hình provider.";
         }
         AiAssistantResponse response = new AiAssistantResponse();
         response.setAnswer(answer);
         return response;
+    }
+
+    private void appendHistory(AiRequest request, List<AiConversationMessage> history) {
+        if (history == null) return;
+        int start = Math.max(0, history.size() - 12);
+        for (int i = start; i < history.size(); i++) {
+            AiConversationMessage message = history.get(i);
+            if (message == null || message.getContent() == null || message.getContent().isBlank()) continue;
+            String role = "assistant".equals(message.getRole()) ? "assistant" : "user";
+            request.addMessage(role, message.getContent().substring(0, Math.min(2000, message.getContent().length())));
+        }
+    }
+
+    private String compactContext(Map<String, Object> context) {
+        if (context == null || context.isEmpty()) return "(trống)";
+        Map<String, Object> compact = new LinkedHashMap<>();
+        int count = 0;
+        for (Map.Entry<String, Object> entry : context.entrySet()) {
+            String key = entry.getKey();
+            if ("stops".equals(key) || "passengerGroups".equals(key)
+                    || key.endsWith(".stops") || key.endsWith(".passengerGroups")) continue;
+            if (entry.getValue() != null && count++ < 80) compact.put(entry.getKey(), entry.getValue());
+        }
+        return json(compact);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        return value instanceof Map<?, ?> ? objectMapper.convertValue(value, Map.class) : Map.of();
+    }
+
+    private Map<String, Object> arguments(Object value) {
+        if (value instanceof Map<?, ?>) return asMap(value);
+        if (value == null) return Map.of();
+        try { return objectMapper.readValue(String.valueOf(value), Map.class); }
+        catch (Exception ignored) { return Map.of(); }
+    }
+
+    private String json(Object value) {
+        try { return objectMapper.writeValueAsString(value); }
+        catch (JsonProcessingException exception) { return "{\"error\":\"unserializable tool result\"}"; }
     }
 
     /**
@@ -130,7 +206,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             if (context.isEmpty()) {
                 throw new ResourceNotFoundException("Trip not found: " + tripId);
             }
-            promoteClientValue(context, "tripId", "currentTripId", "selectedTripId");
             promoteClientValue(context, "status", "tripStatus", "currentTripStatus");
             promoteClientValue(context, "routeName", "currentRouteName", "selectedRouteName");
             promoteClientValue(context, "routeCode", "currentRouteCode", "selectedRouteCode");
@@ -374,30 +449,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 && boardingRequestRepository.existsByPassengerIdAndTripId(passengerId, trip.getId())) {
             return;
         }
-        if (passengerId != null
-                && trip.getId() != null
-                && TripStatus.IN_PROGRESS.equals(trip.getStatus())
-                && trip.getId().equals(clientSelectedTripId(context))) {
-            return;
-        }
         throw new ForbiddenException("Trip does not belong to current account");
     }
 
-    private Long clientSelectedTripId(Map<String, Object> context) {
-        if (context == null) {
-            return null;
-        }
-        Object raw = context.get("client.selectedTripId");
-        if (raw instanceof Number number) {
-            return number.longValue();
-        }
-        if (raw instanceof String text && !text.isBlank()) {
-            try {
-                return Long.parseLong(text);
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        return null;
-    }
 }
